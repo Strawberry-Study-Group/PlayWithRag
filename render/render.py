@@ -1,5 +1,10 @@
 import requests
 from openai import OpenAI
+import replicate
+import os
+from urllib.parse import urlparse
+import base64
+
 class Render():
     def __init__(self,
                  config: dict,
@@ -11,7 +16,11 @@ class Render():
         self.height = config.get("height")
         self.model = config.get("model")
         self.guidance_scale = config.get("guidance_scale")
-        self.openai = OpenAI(api_key=self.api_key)
+        self.config = config
+        if self.render_provider == "openai":
+            self.openai = OpenAI(api_key=self.api_key)
+        if self.render_provider == "replicate":
+            os.environ["REPLICATE_API_TOKEN"] = self.api_key
         
     def generate(self, 
                  prompt: str,
@@ -20,6 +29,8 @@ class Render():
             return self._deepinfra_render(prompt)
         elif self.render_provider == "openai":
             return self._openai_render(prompt)
+        elif self.render_provider == "replicate":
+            return self._replicate_render(prompt)
         else:
             raise ValueError(f"Unsupported render provider: {self.render_provider}")
 
@@ -54,3 +65,121 @@ class Render():
 
         image_url = response.data[0].url
         return image_url
+    
+    def _replicate_render(self, prompt: str) -> str:
+        output = replicate.run(
+            self.model,
+            input={
+                "width": self.width,
+                "height": self.height,
+                "prompt": prompt,
+                "scheduler": self.config.get("scheduler", "KarrasDPM"),
+                "num_outputs": self.config.get("num_outputs",1),
+                "guidance_scale": self.guidance_scale,
+                "apply_watermark": self.config.get("apply_watermark", False),
+                "negative_prompt": self.config.get("negative_prompt", "lowest quality, low quality"),
+                "prompt_strength": self.config.get("prompt_strength", 0.7),
+                "num_inference_steps": self.config.get("num_inference_steps", 20),
+            }
+        )
+
+        # Assuming the output is a list of image URLs, return the first one
+        if isinstance(output, list) and len(output) > 0:
+            return output[0]
+        else:
+            raise ValueError("Unexpected output format from Replicate API")
+        
+
+class RenderWithReferanceImg():
+    def __init__(self,
+                 config: dict,
+                 ):
+        self.render_provider = config.get("render_provider")
+        self.api_key = config.get("api_key")
+        if self.render_provider == "replicate":
+            os.environ["REPLICATE_API_TOKEN"] = self.api_key
+        else:
+            raise ValueError(f"Unsupported render provider: {self.render_provider}")
+        
+        self.api_endpoint = config.get("api_endpoint")
+        self.width = config.get("width")
+        self.height = config.get("height")
+        self.model = config.get("model")
+        print(self.model)
+        self.guidance_scale = config.get("guidance_scale")
+        self.config = config
+
+    def generate(self, 
+                 prompt: str,
+                 referance_img: str,
+                 ) -> str:
+        if self.render_provider == "replicate":
+            return self._replicate_render(prompt, referance_img)
+        else:
+            raise ValueError(f"Unsupported render provider: {self.render_provider}")
+        
+
+
+
+
+    def _replicate_render(self, prompt: str, reference_img: str) -> str:
+        def is_url(url):
+            try:
+                result = urlparse(url)
+                return all([result.scheme, result.netloc])
+            except ValueError:
+                return False
+
+        if is_url(reference_img):
+            # If it's a URL, use it directly
+            image_input = reference_img
+        else:
+            # If it's a local file, convert to base64 data URI
+            if os.path.isfile(reference_img):
+                with open(reference_img, "rb") as file:
+                    file_content = file.read()
+                    base64_encoded = base64.b64encode(file_content).decode('utf-8')
+                    file_extension = os.path.splitext(reference_img)[1][1:]  # Get file extension without the dot
+                    mime_type = f"image/{file_extension}"
+                    image_input = f"data:{mime_type};base64,{base64_encoded}"
+            else:
+                raise ValueError(f"Invalid reference image path: {reference_img}")
+
+        ref_img_key = ""
+        if "kolors" in self.model:
+            ref_img_key = "image"
+        elif "photomaker" in self.model:
+            ref_img_key = "input_image"
+
+        output = replicate.run(
+            self.model,
+            input={
+                "width": self.width,
+                "height": self.height,
+                "prompt": prompt,
+                "cfg": self.config.get("cfg", 4),
+                ref_img_key: image_input,
+                "scheduler": self.config.get("scheduler", "karras"),
+                "sampler": self.config.get("sampler", "dpmpp_2m_sde_gpu"),
+                "output_format": self.config.get("output_format", "jpg"),
+                "oupit_quality": self.config.get("output_quality", 80),
+                "number_of_images": self.config.get("number_of_images", 1),
+                "num_outputs": self.config.get("num_outputs", 1),
+                "guidance_scale": self.config.get("guidance_scale", 5),
+                "ip_adapter_weight": self.config.get("ip_adapter_weight", 1),
+                "ip_adapter_weight_type": self.config.get("ip_adapter_weight_type", "style transfer precise"),
+                "apply_watermark": self.config.get("apply_watermark", False),
+                "negative_prompt": self.config.get("negative_prompt", "lowest quality, low quality"),
+                "prompt_strength": self.config.get("prompt_strength", 0.7),
+                "num_inference_steps": self.config.get("num_inference_steps", 20),
+                "style_strength_ratio": self.config.get("style_strength_ratio", 20),
+                "style_name": self.config.get("style_name","Photographic (Default)"),
+                "num_steps": self.config.get("num_steps", 50),
+            }
+        )
+
+        # Assuming the output is a list of image URLs, return the first one
+        if isinstance(output, list) and len(output) > 0:
+            return output[0]
+        else:
+            raise ValueError("Unexpected output format from Replicate API")
