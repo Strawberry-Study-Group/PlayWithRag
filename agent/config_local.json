@@ -1,0 +1,38 @@
+{ 
+  "concept_graph_config": {
+    "openai_api_key": "your_openai_api_key",
+    "pinecone_api_key": "your_pinecone_api_key",
+    "pinecone_index_name": "test-graph-index",
+    "emb_model": "text-embedding-3-small",
+    "emb_dim": 1536
+  },
+  "save_file_config": {
+    "provider": "local",
+    "save_path": "sys_test_world"
+  },
+  "shorterm_mem_config": {
+    "max_history_rounds": 40, 
+    "lru_cache_size": 100
+  },
+  "llm_config": {
+      "llm_provider": "openai",
+      "api_key": "your_openai_api_key",
+      "model": "gpt-4o-mini",
+      "max_tokens": 100000,
+      "temperature": 0.7,
+      "n": 1,
+      "stop": null
+    },
+  "render_config": {
+      "render_provider": "openai",
+      "api_key": "your_openai_api_key",
+      "model": "dall-e-3",
+      "width": 1024,
+      "height": 1024,
+      "guidance_scale": 0.7
+  },
+  "agent_config": {
+    "retrieval_prompt_path": "../agent/prompt_templates/base_retrieval_instructions.txt",
+    "reasoning_prompt_path": "../agent/prompt_templates/base_reasoning_instructions.txt"
+  }
+}

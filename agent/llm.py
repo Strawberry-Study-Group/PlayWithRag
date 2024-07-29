@@ -1,4 +1,4 @@
-import openai
+from openai import OpenAI
 import requests
 import anthropic
 
@@ -15,6 +15,10 @@ class LLM:
             config (dict): Configuration dictionary containing API settings.
         """
         self.llm_provider = config.get("llm_provider", "openai")
+        if self.llm_provider == "openai":
+            self.client = OpenAI(api_key=config.get("api_key"))
+
+
         self.api_key = config.get("api_key")
         self.model = config.get("model", "text-davinci-003")
         self.max_tokens = config.get("max_tokens", 100)
@@ -51,16 +55,14 @@ class LLM:
         Returns:
             str: The generated text completion.
         """
-        openai.api_key = self.api_key
-        response = openai.Completion.create(
-            engine=self.model,
-            prompt=prompt,
-            max_tokens=self.max_tokens,
-            n=self.n,
-            stop=self.stop,
-            temperature=self.temperature,
-        )
-        return response.choices[0].text.strip()
+        response = self.client.chat.completions.create(
+            model=self.model,
+            response_format={ "type": "json_object" },
+            messages=[
+                {"role": "system", "content": prompt},
+            ]
+            )
+        return response.choices[0].message.content
     
     def _huggingface_completion(self, prompt):
         """

@@ -1,6 +1,6 @@
 import json
 
-class graph_store:
+class GraphStore:
     def __init__(self, file_store):
         self.file_store = file_store
         self.graph_file_name = "graph.json"
@@ -34,11 +34,11 @@ class graph_store:
         self.file_store.add_file("graph.json", self.graph_file_name)
 
     def is_valid_node(self, node):
-        required_keys = ["node_id", "node_name", "node_type", "node_attributes"]
+        required_keys = ["node_id", "node_name", "node_type", "node_attributes", "is_editable"]
         return all(key in node for key in required_keys)
 
-    def is_valid_edge(self, edge):
-        required_keys = ["source_node_id", "target_node_id", "edge_type"]
+    def is_valid_edge(self, edge) -> bool:
+        required_keys = ["source_node_id", "target_node_id", "edge_type", "is_editable"]
         return all(key in edge for key in required_keys)
 
     def add_node(self, node):

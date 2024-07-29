@@ -4,7 +4,7 @@ sys.path.append("..")
 
 from agent.agent import Agent
 
-config_path = "../agent/config.json"
+config_path = "../agent/config_local.json"
 
 agent = Agent(config_path)
 agent.shorterm_mem.set_attribute("player_name", "Dabolaw")
@@ -14,7 +14,7 @@ agent.shorterm_mem.set_attribute("player_health", 100)
 agent.shorterm_mem.set_attribute("player_energy", 100)
 agent.shorterm_mem.set_attribute("player_gold", 0)
 agent.shorterm_mem.set_attribute("player_inventory", [])
-agent.shorterm_mem.append_context("Game started.")
+agent.shorterm_mem.append_play_history("Game started.")
 print("Welcome to the AI-powered text-based game!")
 print("Type 'quit' to exit the game.")
 

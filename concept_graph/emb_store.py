@@ -4,7 +4,7 @@ from openai import OpenAI
 from pinecone import Pinecone, ServerlessSpec
 import re
 
-class emb_store:
+class EmbStore:
     def __init__(self, emb_api_key,
                  pinecone_api_key,
                  pinecone_index_name,
@@ -42,6 +42,7 @@ class emb_store:
         )
         embedding = response.data[0].embedding
         return embedding
+    
 
     def insert_node_emb(self, node_id, node_text, namespace=None):
         embedding = self.generate_embedding(node_text)

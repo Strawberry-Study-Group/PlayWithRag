@@ -1,37 +1,34 @@
 import json
-from .file_store import file_store
-from .graph_store import graph_store
-from .emb_store import emb_store
+from .file_store import LocalFileStore
+from .graph_store import GraphStore
+from .emb_store import EmbStore
 import uuid
 import os
 import copy 
 
 class ConceptGraph:
     def __init__(self,
-                 openai_api_key,
-                 pinecone_api_key,
-                 pinecone_index_name,
-                 emb_model,
-                 emb_dim,
-                 gcp_project_id,
-                 gcp_bucket_path,
-                 gcp_file_prefix,
-                 gcp_credential_path):
+                concept_graph_config, save_file_config):       
+        if save_file_config["provider"] == "local":
+            self.file_store = LocalFileStore(save_file_config["save_path"], "graph/")
+        elif save_file_config["provider"] == "gcp":
+            raise NotImplementedError("gcp file store is not implemented yet.")
+        else:
+            raise ValueError("Invalid file store provider")
         
-        self.file_store = file_store(gcp_project_id, gcp_bucket_path, gcp_file_prefix, gcp_credential_path)    
-        self.graph_store = graph_store(self.file_store)
-        self.emb_store = emb_store(openai_api_key, pinecone_api_key, pinecone_index_name, emb_model, emb_dim)
+        self.graph_store = GraphStore(self.file_store)
+        self.emb_store = EmbStore(concept_graph_config["openai_api_key"],
+                                  concept_graph_config["pinecone_api_key"],
+                                  concept_graph_config["pinecone_index_name"],
+                                  concept_graph_config["emb_model"],
+                                  concept_graph_config["emb_dim"])
 
-        self.openai_api_key = openai_api_key
-        self.pinecone_api_key = pinecone_api_key
-        self.pinecone_index_name = pinecone_index_name
-        self.emb_model = emb_model
-        self.emb_dim = emb_dim
-        self.gcp_project_id = gcp_project_id
-        self.gcp_bucket_path = gcp_bucket_path
-        self.gcp_file_prefix = gcp_file_prefix
-        self.gcp_credential_path = gcp_credential_path
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = self.gcp_credential_path
+        self.openai_api_key = concept_graph_config["openai_api_key"]
+        self.pinecone_api_key = concept_graph_config["pinecone_api_key"]
+        self.pinecone_index_name = concept_graph_config["pinecone_index_name"]
+        self.emb_model = concept_graph_config["emb_model"]
+        self.emb_dim = concept_graph_config["emb_dim"]
+           
 
     def node_to_text(self, node):
         text = f"Node: {node['node_name']}\nType: {node['node_type']}\nAttributes: {json.dumps(node['node_attributes'])}"
@@ -48,7 +45,8 @@ class ConceptGraph:
     
     def is_relation(self, relation_id):
         return relation_id in self.graph_store.graph["edge_dict"] 
-    def add_concept(self, concept_name, concept_type, concept_attributes, image_path=None):
+    
+    def add_concept(self, concept_name, concept_type, concept_attributes, is_editable = True,image_path=None):
         concept_id = self.generate_concept_id()
 
         if type(concept_attributes) is not dict:
@@ -58,6 +56,7 @@ class ConceptGraph:
             "node_id": concept_id,
             "node_name": concept_name,
             "node_type": concept_type,
+            "is_editable": is_editable,
             "node_attributes": concept_attributes
         }
         if image_path:
@@ -103,24 +102,23 @@ class ConceptGraph:
         node = self.graph_store.get_node(concept_id)
         return node
 
-    def add_relation(self, source_concept_id, target_concept_id, relation_type, relation_attributes=None):
+    def add_relation(self, source_concept_id, target_concept_id, relation_type, is_editable = True):
         edge = {
             "source_node_id": source_concept_id,
             "target_node_id": target_concept_id,
             "edge_type": relation_type,
-            "edge_attributes": relation_attributes or {}
+            "is_editable": is_editable,
         }
         self.graph_store.add_edge(edge)
 
     def delete_relation(self, source_concept_id, target_concept_id):
         self.graph_store.delete_edge(source_concept_id, target_concept_id)
 
-    def update_relation(self, source_concept_id, target_concept_id, relation_type=None, relation_attributes=None):
+    def update_relation(self, source_concept_id, target_concept_id, relation_type=None, is_editable=True):
         edge = self.graph_store.get_edge(source_concept_id, target_concept_id)
         if relation_type:
             edge["edge_type"] = relation_type
-        if relation_attributes:
-            edge["edge_attributes"].update(relation_attributes)
+
         self.graph_store.update_edge(edge)
 
     def get_relation(self, source_concept_id, target_concept_id):
@@ -166,7 +164,6 @@ class ConceptGraph:
             if relation_type and edge["edge_type"] != relation_type:
                 continue
             relation = copy.deepcopy(edge)
-            print(relation)
             relation["relation_id"] = self.graph_store.parse_edge_key(relation["source_node_id"], relation["target_node_id"])
             relation["source_concept"] = self.graph_store.graph["node_dict"][relation["source_node_id"]]["node_name"]
             relation["target_concept"] = self.graph_store.graph["node_dict"][relation["target_node_id"]]["node_name"]
@@ -183,7 +180,7 @@ class ConceptGraph:
     def empty_graph(self):
         self.graph_store.delete_graph()
         self.emb_store.delete_index()
-        self.emb_store = emb_store(self.openai_api_key,
+        self.emb_store = EmbStore(self.openai_api_key,
                                    self.pinecone_api_key,
                                    self.pinecone_index_name,
                                    self.emb_model,

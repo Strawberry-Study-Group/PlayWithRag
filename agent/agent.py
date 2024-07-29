@@ -28,16 +28,8 @@ class Agent:
 
         self.actions = dict()
 
-        self.longterm_mem = ConceptGraph(openai_api_key=self.config["concept_graph_config"]["openai_api_key"],
-                                         pinecone_api_key=self.config["concept_graph_config"]["pinecone_api_key"],
-                                         pinecone_index_name=self.config["concept_graph_config"]["pinecone_index_name"],
-                                         emb_model=self.config["concept_graph_config"]["emb_model"],
-                                         emb_dim=self.config["concept_graph_config"]["emb_dim"],
-                                         gcp_project_id=self.config["file_store_config"]["gcp_project_id"],
-                                         gcp_bucket_path=self.config["file_store_config"]["gcp_bucket_path"],
-                                         gcp_file_prefix=self.config["file_store_config"]["gcp_file_prefix"],
-                                         gcp_credential_path=self.config["file_store_config"]["gcp_credential_path"])
-        self.shorterm_mem = ShortTermMemory(self.config["shorterm_mem_config"], self.longterm_mem, self.longterm_mem.file_store)
+        self.longterm_mem = ConceptGraph(self.config["concept_graph_config"], self.config["save_file_config"])
+        self.shorterm_mem = ShortTermMemory(self.config["shorterm_mem_config"], self.longterm_mem, self.config["save_file_config"])
         self.llm = LLM(config=self.config["llm_config"])
         with open(self.config["agent_config"]["retrieval_prompt_path"], encoding="utf-8") as f:
             retrieval_prompt = f.read()

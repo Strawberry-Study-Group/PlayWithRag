@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import json
 
 class ActionNode(ABC):
     """
@@ -62,10 +63,10 @@ class InformationRetrievalAction(ActionNode):
         input_prompt += input_text + "\n"
         input_prompt += "Concepts: \n"
 
-        concept_names = self.llm.completion(input_prompt)
-        concept_names = concept_names[9:]
+        llm_output = self.llm.completion(input_prompt)
+        concept_names = json.loads(llm_output)
+        concept_names = concept_names["concepts"]
         print("concept_names: ", concept_names)
-        concept_names = concept_names.split("|")
         matched_concepts = []
         for concept_name in concept_names:
             retrieved_concepts = self.concept_graph.query_similar_concepts(concept_name)
@@ -167,14 +168,14 @@ class LongTermMemoryUpdateAction(ActionNode):
                         self.concept_graph.add_relation(source_concept_id,
                                                         target_concept_id,
                                                         relation["relation_type"],
-                                                        relation["relation_attributes"])
+                                                        relation["is_editable"],)
             if relation["manipulation"] == "delete":
                 self.concept_graph.delete_relation(source_concept_id, target_concept_id)
             if relation["manipulation"] == "update":
                 self.concept_graph.update_relation(source_concept_id,
                                                 target_concept_id,
                                                 relation["relation_type"],
-                                                relation["relation_attributes"])
+                                                relation["is_editable"],)
     
     def describe_action(self):
         return self.action_description

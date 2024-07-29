@@ -16,3 +16,9 @@ tests/__pycache__/file_store_test.cpython-311.pyc
 tests/__pycache__/graph_store_test.cpython-311.pyc
 tests/graph.json
 tests/short_term_memory.json
+agent/config_local_qy.json
+tests/concept_store/test_world1/graph.json
+tests/sys_test_world/concept_graph/graph.json
+tests/.ipynb_checkpoints/agent_with_rendering_test-checkpoint.ipynb
+tests/.ipynb_checkpoints/agent_with_rendering_test-checkpoint.ipynb
+tests/.ipynb_checkpoints/agent_with_rendering_test-checkpoint.ipynb

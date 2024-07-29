@@ -3,22 +3,22 @@
 Examples:
 Player input:
 I'm in the castle of King Eldred. I see a shiny sword on the wall. I take the sword and head towards the throne room.
-Concepts: King Eldred | castle | shiny sword | throne room
+Concepts: {"concepts": ["King Eldred", "castle", "shiny sword", "throne room"]}
 
 Player input:
 I cast a fireball spell at the group of bandits. The spell hits them and they run away in fear. I continue walking through the dark forest.
-Concepts: fireball spell | bandits | dark forest
+Concepts: {"concepts": ["fireball spell", "bandits", "dark forest"]}
 
 Player input:
 I don't see anything useful here. I'll keep moving forward.
-Concepts:
+Concepts: {"concepts": []}
 
 Player input:
 Sarah looked at the ancient artifact in amazement. She couldn't believe she was holding a piece of history in her hands.
-Concepts: Sarah | ancient artifact
+Concepts: {"concepts": ["Sarah", "ancient artifact"]}
 
 
-Given the input of a player of a text based game below, Find any concept or named entity. Retrun a list of concept names separated by | , 
+Given the input of a player of a text based game below, Find any concept or named entity. Return a list of concept names in JSON format, 
 common concepts: NPC, location, item,  weapon, armor, potion, spell, skill, attribute, action, event, relationship, etc.
-if you think there is no related concepts ONLY return empty string\n
+if you think there is no related concepts return empty list\n
 

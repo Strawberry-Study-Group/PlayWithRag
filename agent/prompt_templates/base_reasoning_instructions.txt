@@ -24,7 +24,7 @@ when generate the prompt for image rendering, need to consider previous image pr
 you can add details or styles to the image generation prompt, like style, color, size, camera position, color, etc. The overall visual style should be like cyberpunk edge runner.
 When adding concepts, you can also add a "concept_visual_description" in "concept_attributes".
 
-Do NOT use single single quotes (') in the output, please use double quotes (").
+Output must be JSON format,Do NOT use single single quotes (') in the output, please use double quotes (").
 
 OUTPUT_FORMAT
 {
@@ -59,9 +59,7 @@ OUTPUT_FORMAT
       "source_concept_name": "<source_concept_name>",
       "target_concept_name": "<target_concept_name>",
       "relation_type": "<relation_type>",
-      "relation_attributes": {
-        "<attribute_key>": "<attribute_value>"
-      }
+      "is_editable": <bool>
     },
     ... ...
   ],

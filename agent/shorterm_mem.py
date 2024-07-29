@@ -1,6 +1,7 @@
 import sys
 sys.path.append("..")
 import json
+from concept_graph.file_store import LocalFileStore
 from collections import OrderedDict
 
 class ShortTermMemory:
@@ -8,7 +9,7 @@ class ShortTermMemory:
     Class representing the short-term memory of an agent.
     """
     
-    def __init__(self, config, long_term_memory, file_store):
+    def __init__(self, config, long_term_memory, save_file_config): 
         """
         Initialize the short-term memory.
         
@@ -22,7 +23,7 @@ class ShortTermMemory:
         self.max_lru_cache_size = config.get("lru_cache_size", 40)
         self.lru_cache = OrderedDict()
 
-        self.file_store = file_store
+        self.file_store = LocalFileStore(save_file_config["save_path"], "short_term_memory/")
         self.short_term_memory_file = "short_term_memory.json"
         self.load_short_term_memory()
         self.long_term_memory = long_term_memory

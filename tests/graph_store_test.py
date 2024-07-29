@@ -5,20 +5,18 @@ import sys
 import json
 
 sys.path.append("..")
-from concept_graph.file_store import file_store
-from concept_graph.graph_store import graph_store
+from concept_graph.file_store import LocalFileStore
+from concept_graph.graph_store import GraphStore
 
-PROJECT_ID = "powerful-surf-415220"
-LOCATION = "us-west1"
-CREDENTIALS_PATH = "/home/eddy/.config/gcloud/application_default_credentials.json"
-BUCKET_PATH = "concept_store"
+
+BASE_PATH = "concept_store"
 FILE_PREFIX = "test_world1/"
 
 class TestGraphStore(unittest.TestCase):
     def setUp(self):
-        self.file_store = file_store(PROJECT_ID, BUCKET_PATH, FILE_PREFIX, CREDENTIALS_PATH)
+        self.file_store = LocalFileStore(BASE_PATH, FILE_PREFIX)
         self.file_store.delete_prefix()
-        self.graph_store = graph_store(self.file_store)
+        self.graph_store = GraphStore(self.file_store)
         
         
     def test_add_node(self):
@@ -26,6 +24,7 @@ class TestGraphStore(unittest.TestCase):
             "node_id": "node1",
             "node_name": "Node 1",
             "node_type": "Type 1",
+            "is_editable": True,
             "node_attributes": {"key": "value"}
         }
         self.graph_store.add_node(node)
@@ -38,17 +37,20 @@ class TestGraphStore(unittest.TestCase):
             "node_id": "node1",
             "node_name": "Node 1",
             "node_type": "Type 1",
+            "is_editable": True,
             "node_attributes": {"key": "value"}
         }
         node2 = {
             "node_id": "node2",
             "node_name": "Node 2",
             "node_type": "Type 2",
+            "is_editable": True,
             "node_attributes": {"key": "value"}
         }
         edge = {
             "source_node_id": "node1",
             "target_node_id": "node2",
+            "is_editable": True,
             "edge_type": "Edge Type",
             "edge_weight": 1
         }
@@ -67,12 +69,14 @@ class TestGraphStore(unittest.TestCase):
             "node_id": "node1",
             "node_name": "Node 1",
             "node_type": "Type 1",
+            "is_editable": True,
             "node_attributes": {"key": "value"}
         }
         updated_node = {
             "node_id": "node1",
             "node_name": "Updated Node 1",
             "node_type": "Updated Type 1",
+            "is_editable": True,
             "node_attributes": {"updated_key": "updated_value"}
         }
         self.graph_store.add_node(node)
@@ -85,6 +89,7 @@ class TestGraphStore(unittest.TestCase):
             "node_id": "node1",
             "node_name": "Node 1",
             "node_type": "Type 1",
+            "is_editable": True,
             "node_attributes": {"key": "value"}
         }
         self.graph_store.add_node(node)
@@ -96,18 +101,21 @@ class TestGraphStore(unittest.TestCase):
             "node_id": "node1",
             "node_name": "Node 1",
             "node_type": "Type 1",
+            "is_editable": True,
             "node_attributes": {"key": "value"}
         }
         node2 = {
             "node_id": "node2",
             "node_name": "Node 2",
             "node_type": "Type 2",
+            "is_editable": True,
             "node_attributes": {"key": "value"}
         }
         edge = {
             "source_node_id": "node1",
             "target_node_id": "node2",
             "edge_type": "Edge Type",
+            "is_editable": True,
             "edge_weight": 1
         }
         self.graph_store.add_node(node1)
@@ -124,18 +132,21 @@ class TestGraphStore(unittest.TestCase):
             "node_id": "node1",
             "node_name": "Node 1",
             "node_type": "Type 1",
+            "is_editable": True,
             "node_attributes": {"key": "value"}
         }
         node2 = {
             "node_id": "node2",
             "node_name": "Node 2",
             "node_type": "Type 2",
+            "is_editable": True,
             "node_attributes": {"key": "value"}
         }
         edge = {
             "source_node_id": "node1",
             "target_node_id": "node2",
             "edge_type": "Edge Type",
+            "is_editable": True,
             "edge_weight": 1
         }
         self.graph_store.add_node(node1)
@@ -152,24 +163,28 @@ class TestGraphStore(unittest.TestCase):
             "node_id": "node1",
             "node_name": "Node 1",
             "node_type": "Type 1",
+            "is_editable": True,
             "node_attributes": {"key": "value"}
         }
         node2 = {
             "node_id": "node2",
             "node_name": "Node 2",
             "node_type": "Type 2",
+            "is_editable": True,
             "node_attributes": {"key": "value"}
         }
         edge = {
             "source_node_id": "node1",
             "target_node_id": "node2",
             "edge_type": "Edge Type",
+            "is_editable": True,
             "edge_weight": 1
         }
         updated_edge = {
             "source_node_id": "node1",
             "target_node_id": "node2",
             "edge_type": "Updated Edge Type",
+            "is_editable": True,
             "edge_weight": 2
         }
         self.graph_store.add_node(node1)
@@ -185,18 +200,21 @@ class TestGraphStore(unittest.TestCase):
             "node_id": "node1",
             "node_name": "Node 1",
             "node_type": "Type 1",
+            "is_editable": True,
             "node_attributes": {"key": "value"}
         }
         node2 = {
             "node_id": "node2",
             "node_name": "Node 2",
             "node_type": "Type 2",
+            "is_editable": True,
             "node_attributes": {"key": "value"}
         }
         edge = {
             "source_node_id": "node1",
             "target_node_id": "node2",
             "edge_type": "Edge Type",
+            "is_editable": True,
             "edge_weight": 1
         }
         self.graph_store.add_node(node1)
@@ -210,30 +228,35 @@ class TestGraphStore(unittest.TestCase):
             "node_id": "node1",
             "node_name": "Node 1",
             "node_type": "Type 1",
+            "is_editable": True,
             "node_attributes": {"key": "value"}
         }
         node2 = {
             "node_id": "node2",
             "node_name": "Node 2",
             "node_type": "Type 2",
+            "is_editable": True,
             "node_attributes": {"key": "value"}
         }
         node3 = {
             "node_id": "node3",
             "node_name": "Node 3",
             "node_type": "Type 3",
+            "is_editable": True,
             "node_attributes": {"key": "value"}
         }
         edge1 = {
             "source_node_id": "node1",
             "target_node_id": "node2",
             "edge_type": "Edge Type",
+            "is_editable": True,
             "edge_weight": 1
         }
         edge2 = {
             "source_node_id": "node2",
             "target_node_id": "node3",
             "edge_type": "Edge Type",
+            "is_editable": True,
             "edge_weight": 1
         }
         self.graph_store.add_node(node1)
