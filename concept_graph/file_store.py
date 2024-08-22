@@ -100,3 +100,33 @@ class LocalFileStore:
             shutil.rmtree(self.prefix_path)
         os.makedirs(self.prefix_path, exist_ok=True)  # Recreate the empty prefix directory
 
+    def save_img_from_url(self, url, file_name):
+        import requests
+        from PIL import Image
+        import io
+        import os
+
+        # Download the image
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an exception for bad responses
+
+        # Open the image using PIL
+        img = Image.open(io.BytesIO(response.content))
+
+        # Convert to RGB if the image is in RGBA mode
+        if img.mode == 'RGBA':
+            img = img.convert('RGB')
+
+        # Create the imgs directory if it doesn't exist
+        imgs_dir = os.path.join(self.prefix_path, "imgs")
+        os.makedirs(imgs_dir, exist_ok=True)
+
+        # Append .jpg to the filename
+        file_name_with_ext = f"{file_name}.jpg"
+        full_path = os.path.join(imgs_dir, file_name_with_ext)
+
+        # Save the image as JPEG
+        img.save(full_path, 'JPEG')
+
+        return full_path
+

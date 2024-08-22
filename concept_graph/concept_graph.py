@@ -1,7 +1,7 @@
 import json
 from .file_store import LocalFileStore
 from .graph_store import GraphStore
-from .emb_store import EmbStore
+from .emb_store import EmbStore, EmbStoreLocal
 import uuid
 import os
 import copy 
@@ -16,16 +16,23 @@ class ConceptGraph:
         else:
             raise ValueError("Invalid file store provider")
         
+        self.concept_graph_config = concept_graph_config
         self.graph_store = GraphStore(self.file_store)
-        self.emb_store = EmbStore(concept_graph_config["openai_api_key"],
-                                  concept_graph_config["pinecone_api_key"],
-                                  concept_graph_config["pinecone_index_name"],
-                                  concept_graph_config["emb_model"],
-                                  concept_graph_config["emb_dim"])
+        if concept_graph_config["provider"] == "remote":
+            self.emb_store = EmbStore(concept_graph_config["openai_api_key"],
+                                    concept_graph_config["pinecone_api_key"],
+                                    concept_graph_config["pinecone_index_name"],
+                                    concept_graph_config["emb_model"],
+                                    concept_graph_config["emb_dim"])
+            self.pinecone_api_key = concept_graph_config["pinecone_api_key"]
+            self.pinecone_index_name = concept_graph_config["pinecone_index_name"]
+        elif concept_graph_config["provider"] == "local":
+            self.emb_store = EmbStoreLocal(concept_graph_config["openai_api_key"],
+                                           self.file_store,
+                                           concept_graph_config["emb_model"],
+                                           concept_graph_config["emb_dim"])
 
         self.openai_api_key = concept_graph_config["openai_api_key"]
-        self.pinecone_api_key = concept_graph_config["pinecone_api_key"]
-        self.pinecone_index_name = concept_graph_config["pinecone_index_name"]
         self.emb_model = concept_graph_config["emb_model"]
         self.emb_dim = concept_graph_config["emb_dim"]
            
@@ -60,8 +67,8 @@ class ConceptGraph:
             "node_attributes": concept_attributes
         }
         if image_path:
-            self.file_store.add_file(image_path, f"{concept_id}.jpg")
-            node["image_path"] = f"{concept_id}.jpg"
+            self.file_store.add_file(image_path, f"imgs/{concept_id}.jpg")
+            node["image_path"] = f"imgs/{concept_id}.jpg"
         else:
             node["image_path"] = None
 
@@ -73,7 +80,7 @@ class ConceptGraph:
         
     def delete_concept(self, concept_id):
         if self.graph_store.graph["node_dict"][concept_id].get("image_path"):
-            self.file_store.delete_file(f"{concept_id}.jpg")
+            self.file_store.delete_file(f"imgs/{concept_id}.jpg")
         self.emb_store.delete_node_emb(concept_id, namespace="full_node")
         self.emb_store.delete_node_emb(concept_id+"||node_name", namespace="node_name")
         self.graph_store.delete_node(concept_id)
@@ -91,8 +98,8 @@ class ConceptGraph:
             node["node_attributes"].update(concept_attributes)
 
         if image_path:
-            self.file_store.add_file(image_path, f"{concept_id}.jpg")
-            node["image_path"] = f"{concept_id}.jpg"
+            #self.file_store.add_file(image_path, f"imgs/{concept_id}.jpg")
+            node["image_path"] = image_path
         self.graph_store.update_node(node)
         node_text = self.node_to_text(node)
         self.emb_store.update_node_emb(concept_id, node_text, namespace="full_node")
@@ -114,7 +121,7 @@ class ConceptGraph:
     def delete_relation(self, source_concept_id, target_concept_id):
         self.graph_store.delete_edge(source_concept_id, target_concept_id)
 
-    def update_relation(self, source_concept_id, target_concept_id, relation_type=None, is_editable=True):
+    def update_relation(self, source_concept_id, target_concept_id, relation_type=None):
         edge = self.graph_store.get_edge(source_concept_id, target_concept_id)
         if relation_type:
             edge["edge_type"] = relation_type
@@ -180,8 +187,15 @@ class ConceptGraph:
     def empty_graph(self):
         self.graph_store.delete_graph()
         self.emb_store.delete_index()
-        self.emb_store = EmbStore(self.openai_api_key,
-                                   self.pinecone_api_key,
-                                   self.pinecone_index_name,
-                                   self.emb_model,
-                                   self.emb_dim)
+        self.file_store.delete_prefix()
+        if self.concept_graph_config["provider"] == "remote":
+            self.emb_store = EmbStore(self.openai_api_key,
+                                    self.pinecone_api_key,
+                                    self.pinecone_index_name,
+                                    self.emb_model,
+                                    self.emb_dim)
+        elif self.concept_graph_config["provider"] == "local":
+            self.emb_store = EmbStoreLocal(self.openai_api_key,
+                                           self.file_store,
+                                           self.emb_model,
+                                           self.emb_dim)

@@ -5,7 +5,7 @@ import os
 from urllib.parse import urlparse
 import base64
 
-class Render():
+class ImgRender():
     def __init__(self,
                  config: dict,
                  ):
@@ -90,7 +90,7 @@ class Render():
             raise ValueError("Unexpected output format from Replicate API")
         
 
-class RenderWithReferanceImg():
+class ImgRenderWithReferanceImg():
     def __init__(self,
                  config: dict,
                  ):
@@ -111,10 +111,14 @@ class RenderWithReferanceImg():
 
     def generate(self, 
                  prompt: str,
-                 referance_img: str,
+                 referance_img: str = "None",
                  ) -> str:
-        if self.render_provider == "replicate":
+        if self.render_provider == "replicate" and "flux" not in self.model:
+            if referance_img == "None" or referance_img is None:
+                raise ValueError("Reference image is required for this API")
             return self._replicate_render(prompt, referance_img)
+        if self.render_provider == "replicate" and "flux" in self.model:
+            return self._replicate_flux_render(prompt, referance_img)
         else:
             raise ValueError(f"Unsupported render provider: {self.render_provider}")
         
@@ -176,6 +180,58 @@ class RenderWithReferanceImg():
                 "style_name": self.config.get("style_name","Photographic (Default)"),
                 "num_steps": self.config.get("num_steps", 50),
             }
+        )
+
+        # Assuming the output is a list of image URLs, return the first one
+        if isinstance(output, list) and len(output) > 0:
+            return output[0]
+        else:
+            raise ValueError("Unexpected output format from Replicate API")
+
+
+    def _replicate_flux_render(self, prompt: str, reference_img: str = "None") -> str:
+        def is_url(url):
+            try:
+                result = urlparse(url)
+                return all([result.scheme, result.netloc])
+            except ValueError:
+                return False
+
+        if reference_img != "None":
+            if is_url(reference_img):
+                # If it's a URL, use it directly
+                image_input = reference_img
+            else:
+                # If it's a local file, convert to base64 data URI
+                if os.path.isfile(reference_img):
+                    with open(reference_img, "rb") as file:
+                        file_content = file.read()
+                        base64_encoded = base64.b64encode(file_content).decode('utf-8')
+                        file_extension = os.path.splitext(reference_img)[1][1:]  # Get file extension without the dot
+                        mime_type = f"image/{file_extension}"
+                        image_input = f"data:{mime_type};base64,{base64_encoded}"
+                else:
+                    raise ValueError(f"Invalid reference image path: {reference_img}")
+        else:
+            image_input = "None"
+        
+        input_data = {
+                "prompt": prompt,
+                "guidance": self.config.get("guidance", 3.5),
+                "num_outputs": self.config.get("num_outputs", 1),
+                "aspect_ratio": self.config.get("aspect_ratio", "1:1"),
+                "output_format": self.config.get("output_format", "jpg"),
+                "output_quality": self.config.get("output_quality", 80),
+                "prompt_strength": self.config.get("prompt_strength", 0.8),
+                "disable_safety_checker": self.config.get("disable_safety_checker", False),
+            }
+        
+        if image_input != "None":
+            input_data["image"] = image_input
+
+        output = replicate.run(
+            self.model,
+            input=input_data
         )
 
         # Assuming the output is a list of image URLs, return the first one

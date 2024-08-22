@@ -4,7 +4,7 @@ from .shorterm_mem import ShortTermMemory
 from concept_graph.concept_graph import ConceptGraph
 from .action_node import *
 from .llm import LLM
-from render.render import Render
+from render.render import ImgRender,ImgRenderWithReferanceImg
 import json
 import re
 
@@ -43,7 +43,7 @@ class Agent:
                                                     reasoning_prompt=reasoning_prompt)
         self.actions["update_long_term_mem"] = LongTermMemoryUpdateAction("Update long-term memory", self.longterm_mem)
         self.actions["update_short_term_mem"] = ShortTermMemoryUpdateAction("Update short-term memory", self.shorterm_mem)
-        self.actions["rendering"] = ImageRenderAction("Rendering", image_renderer=Render(self.config["render_config"]))
+        self.actions["rendering"] = ImageRenderAction("Rendering", image_renderer=ImgRender(self.config["render_config"]))
     
 
     def reason_one_round(self, player_input):

@@ -7,8 +7,8 @@ from concept_graph.emb_store import EmbStore
 
 
 
-EMB_API_KEY = "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"
-PINECONE_API_KEY = "72f6c3a8-29ec-4c52-9661-7c92a8cf1c64"
+EMB_API_KEY = "key-1a1a1a1a-1a1a-1a1a-1a1a-1a1a1a1a1a1a"
+PINECONE_API_KEY = "key-1b1b1b1b-1b1b-1b1b-1b1b-1b1b1b1b1b1b"
 PINECONE_INDEX_NAME = "test-graph-index"
 EMB_MODEL = "text-embedding-ada-002"
 EMB_DIM = 1536
