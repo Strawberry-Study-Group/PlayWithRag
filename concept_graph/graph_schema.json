@@ -1,0 +1,215 @@
+{
+  "version": "1.0",
+  "description": "Schema definition for graph data structures",
+  "graph": {
+    "required_fields": {
+      "node_dict": {
+        "type": "object",
+        "description": "Dictionary of all nodes indexed by node_id"
+      },
+      "edge_dict": {
+        "type": "object", 
+        "description": "Dictionary of all edges indexed by edge_key"
+      },
+      "neighbor_dict": {
+        "type": "object",
+        "description": "Dictionary mapping node_id to list of neighbor node_ids"
+      },
+      "node_name_to_id": {
+        "type": "object",
+        "description": "Dictionary mapping node names to node_ids for fast lookup"
+      },
+      "metadata": {
+        "type": "object",
+        "description": "Graph-level metadata",
+        "required": false,
+        "default": {
+          "created_at": null,
+          "updated_at": null,
+          "version": "1.0",
+          "description": ""
+        }
+      }
+    }
+  },
+  "node": {
+    "required_fields": {
+      "node_id": {
+        "type": "string",
+        "description": "Unique identifier for the node",
+        "constraints": {
+          "min_length": 1,
+          "max_length": 256
+        }
+      },
+      "node_name": {
+        "type": "string",
+        "description": "Human-readable name for the node",
+        "constraints": {
+          "min_length": 1,
+          "max_length": 512
+        }
+      },
+      "node_type": {
+        "type": "string",
+        "description": "Type/category of the node",
+        "allowed_values": [
+          "character", "location", "item", "concept", 
+          "event", "organization", "skill", "custom"
+        ]
+      },
+      "node_attributes": {
+        "type": "object",
+        "description": "Flexible attributes specific to node type",
+        "default": {}
+      },
+      "is_editable": {
+        "type": "boolean",
+        "description": "Whether the node can be modified",
+        "default": true
+      },
+      "refs": {
+        "type": "object",
+        "description": "Reference files associated with the node",
+        "required": false,
+        "default": {
+          "ref_img": [],
+          "ref_audio": [],
+          "ref_video": [],
+          "ref_docs": []
+        },
+        "properties": {
+          "ref_img": {
+            "type": "array",
+            "description": "Array of image file paths",
+            "items": {
+              "type": "string",
+              "description": "Path to image file"
+            }
+          },
+          "ref_audio": {
+            "type": "array", 
+            "description": "Array of audio file paths",
+            "items": {
+              "type": "string",
+              "description": "Path to audio file"
+            }
+          },
+          "ref_video": {
+            "type": "array",
+            "description": "Array of video file paths", 
+            "items": {
+              "type": "string",
+              "description": "Path to video file"
+            }
+          },
+          "ref_docs": {
+            "type": "array",
+            "description": "Array of document file paths",
+            "items": {
+              "type": "string", 
+              "description": "Path to document file"
+            }
+          }
+        }
+      },
+      "created_at": {
+        "type": "string",
+        "description": "ISO timestamp when node was created",
+        "required": false,
+        "format": "iso_datetime"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "ISO timestamp when node was last updated", 
+        "required": false,
+        "format": "iso_datetime"
+      }
+    }
+  },
+  "edge": {
+    "required_fields": {
+      "source_node_id": {
+        "type": "string",
+        "description": "ID of the source node",
+        "constraints": {
+          "min_length": 1,
+          "max_length": 256
+        }
+      },
+      "target_node_id": {
+        "type": "string", 
+        "description": "ID of the target node",
+        "constraints": {
+          "min_length": 1,
+          "max_length": 256
+        }
+      },
+      "edge_type": {
+        "type": "string",
+        "description": "Type/relationship of the edge",
+        "allowed_values": [
+          "has", "owns", "uses", "knows", "located_at", 
+          "belongs_to", "contains", "leads_to", "requires",
+          "causes", "enables", "prevents", "follows", "custom"
+        ]
+      },
+      "is_editable": {
+        "type": "boolean",
+        "description": "Whether the edge can be modified",
+        "default": true
+      },
+      "is_directed": {
+        "type": "boolean",
+        "description": "Whether the edge is directional (source -> target)",
+        "default": false
+      },
+      "weight": {
+        "type": "number",
+        "description": "Strength/importance of the relationship",
+        "required": false,
+        "default": 1.0,
+        "constraints": {
+          "min": 0.0,
+          "max": 10.0
+        }
+      },
+      "edge_attributes": {
+        "type": "object",
+        "description": "Flexible attributes specific to edge type",
+        "required": false,
+        "default": {}
+      },
+      "created_at": {
+        "type": "string",
+        "description": "ISO timestamp when edge was created",
+        "required": false,
+        "format": "iso_datetime"
+      },
+      "updated_at": {
+        "type": "string",
+        "description": "ISO timestamp when edge was last updated",
+        "required": false, 
+        "format": "iso_datetime"
+      }
+    }
+  },
+  "validation_rules": {
+    "node": {
+      "unique_fields": ["node_id", "node_name"],
+      "immutable_fields": ["node_id"],
+      "required_on_create": ["node_id", "node_name", "node_type"],
+      "auto_generated_fields": ["created_at", "updated_at"]
+    },
+    "edge": {
+      "unique_fields": ["source_node_id+target_node_id"],
+      "immutable_fields": ["source_node_id", "target_node_id"],
+      "required_on_create": ["source_node_id", "target_node_id", "edge_type"],
+      "auto_generated_fields": ["created_at", "updated_at"],
+      "constraints": {
+        "no_self_loops": true,
+        "directional_support": true
+      }
+    }
+  }
+}
