@@ -1,10 +1,11 @@
 { 
   "concept_graph_config": {
-    "openai_api_key": "your_openai_api_key",
-    "pinecone_api_key": "your_pinecone_api_key",
-    "pinecone_index_name": "test-graph-index",
+    "openai_api_key": "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",
+    "pinecone_api_key": "pcsk_44qDKX_TZNpTEWn49iPgN8pf88SkNCEZ4K71ynHcqooURby8UfCKvWiKfnV1J1pPVmXNWE",
+    "pinecone_index_name": "task-graph-index",
     "emb_model": "text-embedding-3-small",
-    "emb_dim": 1536
+    "emb_dim": 1536,
+    "metric": "cosine"
   },
   "save_file_config": {
     "provider": "local",
@@ -16,7 +17,7 @@
   },
   "llm_config": {
       "llm_provider": "openai",
-      "api_key": "your_openai_api_key",
+      "api_key": "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",
       "model": "gpt-4o-mini",
       "max_tokens": 100000,
       "temperature": 0.7,
@@ -25,7 +26,7 @@
     },
   "render_config": {
       "render_provider": "openai",
-      "api_key": "your_openai_api_key",
+      "api_key": "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",
       "model": "dall-e-3",
       "width": 1024,
       "height": 1024,

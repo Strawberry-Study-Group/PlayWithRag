@@ -333,6 +333,12 @@ class TestPineconeVectorStore:
         # Setup mocks
         mock_pc = Mock()
         mock_pc.list_indexes.return_value.names.return_value = ["existing_index"]
+        
+        # Mock describe_index to return an object with status dict
+        mock_describe_response = Mock()
+        mock_describe_response.status = {'ready': True}
+        mock_pc.describe_index.return_value = mock_describe_response
+        
         mock_index = Mock()
         mock_pc.Index.return_value = mock_index
         mock_pinecone_class.return_value = mock_pc

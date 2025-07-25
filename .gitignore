@@ -54,3 +54,52 @@ concept_graph/__pycache__/constants.cpython-311.pyc
 tests/__pycache__/__init__.cpython-311.pyc
 __pycache__/__init__.cpython-311.pyc
 tests/unit_tests/__pycache__/__init__.cpython-311.pyc
+
+# Environment files with API keys and secrets
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+**/config_local.json
+**/*_local.json
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Test and system data
+tests/system_test_data/
+tests/**/test_*.jpg
+tests/**/test_*.png
+*.json.backup
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

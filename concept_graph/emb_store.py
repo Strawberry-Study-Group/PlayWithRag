@@ -186,6 +186,13 @@ class PineconeVectorStore(IVectorStore):
                     spec=ServerlessSpec(cloud=cloud, region=region)
                 )
                 self.logger.info(f"Created Pinecone index: {self.index_name}")
+                
+                # Wait for index to be ready
+                import time
+                while not self.pc.describe_index(self.index_name).status['ready']:
+                    time.sleep(1)
+                    self.logger.debug(f"Waiting for index {self.index_name} to be ready...")
+                self.logger.info(f"Index {self.index_name} is ready")
         except Exception as e:
             raise IndexError(f"Failed to create/access index {self.index_name}: {e}")
     

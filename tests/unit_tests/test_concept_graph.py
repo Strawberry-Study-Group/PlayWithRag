@@ -360,7 +360,7 @@ class TestConceptGraphService:
         mock_file_store_with_spy.add_file.assert_called_with("/path/to/castle.jpg", f"imgs/{concept_id}.jpg")
     
     def test_add_concept_invalid_attributes(self, concept_graph):
-        with pytest.raises(ValueError, match="Concept attributes should be a dictionary"):
+        with pytest.raises(ValueError, match="Attributes must be a dictionary"):
             concept_graph.add_concept("Test", "character", "invalid_attributes")
     
     def test_update_concept_success(self, concept_graph, sample_concept_data, mock_logger):

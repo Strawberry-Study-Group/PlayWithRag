@@ -387,6 +387,7 @@ class ConceptGraphFactory:
                           save_file_config: Dict[str, Any],
                           schema_file: Optional[str] = None,
                           graph_file_name: str = "graph.json",
+                          index_file_name: str = "emb_index.json",
                           logger: Optional[logging.Logger] = None) -> ConceptGraphService:
         """Create concept graph from configuration dictionaries."""
         # Create file store
@@ -412,7 +413,8 @@ class ConceptGraphFactory:
                 concept_graph_config["pinecone_index_name"],
                 concept_graph_config["emb_model"],
                 concept_graph_config["emb_dim"],
-                logger
+                concept_graph_config.get("metric", "cosine"),
+                logger=logger
             )
         elif concept_graph_config["provider"] == "local":
             emb_store = EmbStoreFactory.create_local_store(
@@ -420,6 +422,7 @@ class ConceptGraphFactory:
                 file_store,
                 concept_graph_config["emb_model"],
                 concept_graph_config["emb_dim"],
+                index_file_name,
                 logger
             )
         else:
