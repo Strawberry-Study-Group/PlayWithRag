@@ -401,7 +401,6 @@ class GraphStore(IGraphStore):
         self.graph["node_name_to_id"][node_name] = node_id
         
         self.logger.debug(f"Added node: {node_id}")
-        self.save_graph()
 
     def delete_node(self, node_id: str) -> None:
         """Delete a node from the graph."""
@@ -432,7 +431,6 @@ class GraphStore(IGraphStore):
                 neighbor_list.remove(node_id)
         
         self.logger.debug(f"Deleted node: {node_id}")
-        self.save_graph()
 
     def update_node(self, node: Dict[str, Any]) -> None:
         """Update an existing node."""
@@ -466,7 +464,6 @@ class GraphStore(IGraphStore):
         
         self.graph["node_dict"][node_id] = node
         self.logger.debug(f"Updated node: {node_id}")
-        self.save_graph()
 
     def get_node(self, node_id: str) -> Optional[Dict[str, Any]]:
         """Get a node by ID."""
@@ -509,7 +506,6 @@ class GraphStore(IGraphStore):
             self.graph["neighbor_dict"][target_id].append(source_id)
         
         self.logger.debug(f"Added edge: {edge_key}")
-        self.save_graph()
 
     def delete_edge(self, source_node_id: str, target_node_id: str) -> None:
         """Delete an edge from the graph."""
@@ -543,7 +539,6 @@ class GraphStore(IGraphStore):
             self.graph["neighbor_dict"][target_node_id].remove(source_node_id)
         
         self.logger.debug(f"Deleted edge: {edge_key}")
-        self.save_graph()
 
     def update_edge(self, edge: Dict[str, Any]) -> None:
         """Update an existing edge."""
@@ -583,7 +578,6 @@ class GraphStore(IGraphStore):
         
         self.graph["edge_dict"][edge_key] = edge
         self.logger.debug(f"Updated edge: {edge_key}")
-        self.save_graph()
 
     def get_edge(self, source_node_id: str, target_node_id: str) -> Optional[Dict[str, Any]]:
         """Get an edge by source and target node IDs."""

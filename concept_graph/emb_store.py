@@ -88,6 +88,11 @@ class IVectorStore(ABC):
     def delete_index(self, namespace: Optional[str] = None) -> None:
         """Delete index or namespace."""
         pass
+    
+    @abstractmethod
+    def save_index(self) -> None:
+        """Save index to persistent storage."""
+        pass
 
 
 class IEmbStore(ABC):
@@ -121,6 +126,11 @@ class IEmbStore(ABC):
     @abstractmethod
     def delete_index(self, namespace: Optional[str] = None) -> None:
         """Delete index or namespace."""
+        pass
+    
+    @abstractmethod
+    def save_index(self) -> None:
+        """Save index to persistent storage."""
         pass
 
 
@@ -257,6 +267,10 @@ class PineconeVectorStore(IVectorStore):
             self.logger.info(f"Deleted Pinecone index: {self.index_name}")
         except Exception as e:
             raise IndexError(f"Failed to delete index {self.index_name}: {e}")
+    
+    def save_index(self) -> None:
+        """Pinecone automatically persists changes, no action needed."""
+        pass
 
 
 class FAISSVectorStore(IVectorStore):
@@ -344,12 +358,11 @@ class FAISSVectorStore(IVectorStore):
         return self.namespaces[namespace]
     
     def insert_node_emb(self, node_id: str, embedding: np.ndarray, namespace: Optional[str] = None) -> None:
-        """Insert node embedding into FAISS."""
+        """Insert node embedding into FAISS (in-memory only)."""
         try:
             namespace_data = self.get_namespace(namespace)
             namespace_data["index"].add(np.array([embedding], dtype=np.float32))
             namespace_data["id_to_index"][node_id] = namespace_data["index"].ntotal - 1
-            self.save_index()
             self.logger.debug(f"Inserted embedding for node: {node_id}")
         except Exception as e:
             raise IndexError(f"Failed to insert node {node_id}: {e}")
@@ -362,7 +375,7 @@ class FAISSVectorStore(IVectorStore):
         self.insert_node_emb(node_id, embedding, namespace)
     
     def delete_node_emb(self, node_id: str, namespace: Optional[str] = None) -> None:
-        """Delete node embedding from FAISS."""
+        """Delete node embedding from FAISS (in-memory only)."""
         try:
             namespace_data = self.get_namespace(namespace)
             if node_id not in namespace_data["id_to_index"]:
@@ -384,7 +397,6 @@ class FAISSVectorStore(IVectorStore):
                 for node_id, idx in namespace_data["id_to_index"].items()
             }
             
-            self.save_index()
             self.logger.debug(f"Deleted embedding for node: {node_id}")
         except Exception as e:
             raise IndexError(f"Failed to delete node {node_id}: {e}")
@@ -427,7 +439,7 @@ class FAISSVectorStore(IVectorStore):
             raise IndexError(f"Failed to query similar nodes: {e}")
     
     def delete_index(self, namespace: Optional[str] = None) -> None:
-        """Delete FAISS index or namespace."""
+        """Delete FAISS index or namespace (in-memory only)."""
         try:
             if namespace is None:
                 self.namespaces = {"default": {"index": faiss.IndexFlatIP(self.dimension), "id_to_index": {}}}
@@ -436,7 +448,6 @@ class FAISSVectorStore(IVectorStore):
             else:
                 raise NamespaceError(f"Namespace {namespace} does not exist")
             
-            self.save_index()
             self.logger.info(f"Deleted index/namespace: {namespace or 'all'}")
         except Exception as e:
             raise IndexError(f"Failed to delete index: {e}")
@@ -488,6 +499,10 @@ class EmbStore(IEmbStore):
     def delete_index(self, namespace: Optional[str] = None) -> None:
         """Delete index or namespace."""
         self.vector_store.delete_index(namespace)
+    
+    def save_index(self) -> None:
+        """Save index to persistent storage."""
+        self.vector_store.save_index()
 
 
 class EmbStoreLocal(IEmbStore):
@@ -542,6 +557,10 @@ class EmbStoreLocal(IEmbStore):
     def delete_index(self, namespace: Optional[str] = None) -> None:
         """Delete index or namespace."""
         self.vector_store.delete_index(namespace)
+    
+    def save_index(self) -> None:
+        """Save index to persistent storage."""
+        self.vector_store.save_index()
 
 
 class EmbStoreService(IEmbStore):
@@ -582,6 +601,10 @@ class EmbStoreService(IEmbStore):
     def delete_index(self, namespace: Optional[str] = None) -> None:
         """Delete index or namespace."""
         self.vector_store.delete_index(namespace)
+    
+    def save_index(self) -> None:
+        """Save index to persistent storage."""
+        self.vector_store.save_index()
 
 
 class EmbStoreFactory:

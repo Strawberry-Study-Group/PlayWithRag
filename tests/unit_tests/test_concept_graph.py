@@ -252,6 +252,10 @@ class MockEmbStore(IEmbStore):
             self.embeddings.clear()
         elif namespace in self.embeddings:
             del self.embeddings[namespace]
+    
+    def save_index(self) -> None:
+        """Mock save_index method - no-op for testing."""
+        pass
 
 
 class TestConceptGraphService:
@@ -286,6 +290,7 @@ class TestConceptGraphService:
         mock = MockEmbStore()
         mock.query_similar_nodes = Mock(side_effect=mock.query_similar_nodes)
         mock.delete_index = Mock(side_effect=mock.delete_index)
+        mock.save_index = Mock(side_effect=mock.save_index)
         return mock
     
     @pytest.fixture
@@ -475,12 +480,13 @@ class TestConceptGraphService:
         with pytest.raises(ConceptNotFoundError):
             concept_graph.get_related_concepts("nonexistent")
     
-    def test_save_graph(self, mock_file_store, mock_graph_store_with_spy, mock_emb_store, mock_logger):
-        concept_graph = ConceptGraphService(mock_file_store, mock_graph_store_with_spy, mock_emb_store, mock_logger)
+    def test_save_graph(self, mock_file_store, mock_graph_store_with_spy, mock_emb_store_with_spy, mock_logger):
+        concept_graph = ConceptGraphService(mock_file_store, mock_graph_store_with_spy, mock_emb_store_with_spy, mock_logger)
         concept_graph.save_graph()
         
         mock_graph_store_with_spy.save_graph.assert_called_once()
-        mock_logger.debug.assert_called_with("Graph saved")
+        mock_emb_store_with_spy.save_index.assert_called_once()
+        mock_logger.debug.assert_called_with("Graph and embeddings saved")
     
     def test_empty_graph(self, mock_file_store, mock_graph_store_with_spy, mock_emb_store_with_spy, mock_logger):
         concept_graph = ConceptGraphService(mock_file_store, mock_graph_store_with_spy, mock_emb_store_with_spy, mock_logger)
@@ -488,7 +494,7 @@ class TestConceptGraphService:
         
         mock_graph_store_with_spy.delete_graph.assert_called_once()
         mock_emb_store_with_spy.delete_index.assert_called_once()
-        mock_logger.info.assert_called_with("Graph emptied successfully")
+        mock_logger.info.assert_called_with("Graph emptied successfully (in-memory only)")
     
     def test_is_concept(self, concept_graph):
         concept_id = concept_graph.add_concept("Hero", "character", {"level": 1})

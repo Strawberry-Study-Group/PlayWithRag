@@ -103,3 +103,4 @@ tests/**/test_*.png
 # OS files
 .DS_Store
 Thumbs.db
+unit_test_save/graph/emb_index.json

@@ -336,12 +336,13 @@ class ConceptGraphService(IConceptGraph):
         return None
                
     def save_graph(self) -> None:
-        """Save the graph to storage."""
+        """Save the graph and embeddings to persistent storage."""
         self.graph_store.save_graph()
-        self.logger.debug("Graph saved")
+        self.emb_store.save_index()
+        self.logger.debug("Graph and embeddings saved")
 
     def empty_graph(self) -> None:
-        """Empty the entire graph and reset all stores."""
+        """Empty the entire graph and reset all stores (in-memory only)."""
         try:
             self.graph_store.delete_graph()
             self.emb_store.delete_index()
@@ -350,7 +351,7 @@ class ConceptGraphService(IConceptGraph):
             if hasattr(self.file_store, 'delete_prefix'):
                 self.file_store.delete_prefix()
             
-            self.logger.info("Graph emptied successfully")
+            self.logger.info("Graph emptied successfully (in-memory only)")
         except Exception as e:
             self.logger.error(f"Failed to empty graph: {e}")
             raise ConceptGraphError(f"Failed to empty graph: {e}")

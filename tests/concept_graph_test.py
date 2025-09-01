@@ -13,6 +13,8 @@ file_store_config = {
 }
 
 concept_graph_config = {
+    "provider": "local",  # Use local FAISS instead of Pinecone for testing
+    "embedding_api_key": "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",
     "openai_api_key": "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",
     "pinecone_api_key": "72f6c3a8-29ec-4c52-9661-7c92a8cf1c64",
     "pinecone_index_name": "test-graph-index",
