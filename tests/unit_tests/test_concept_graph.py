@@ -8,7 +8,7 @@ import logging
 from typing import Dict, Any, List, Tuple, Optional
 import numpy as np
 
-from concept_graph.concept_graph import (
+from memory.memory import (
     ConceptGraphService,
     ConceptGraphFactory,
     ConceptGraphError,
@@ -16,9 +16,9 @@ from concept_graph.concept_graph import (
     RelationNotFoundError,
     IConceptGraph
 )
-from concept_graph.file_store import IFileStore
-from concept_graph.graph_store import IGraphStore
-from concept_graph.emb_store import IEmbService
+from memory.file_store import IFileStore
+from memory.graph_store import IGraphStore
+from memory.emb_store import IEmbService
 
 
 class MockFileStore(IFileStore):
@@ -559,12 +559,12 @@ class TestConceptGraphFactory:
             "save_path": "/tmp/test"
         }
     
-    @patch('concept_graph.concept_graph.FileStoreFactory')
-    @patch('concept_graph.concept_graph.GraphStoreFactory')
-    @patch('concept_graph.concept_graph.EmbServiceFactory')
-    def test_create_from_config_local(self, mock_emb_factory, mock_graph_factory, 
-                                     mock_file_factory, sample_concept_config, 
-                                     sample_file_config, mock_logger):
+    @patch('memory.memory.FileStoreFactory')
+    @patch('memory.memory.GraphStoreFactory')
+    @patch('memory.memory.EmbServiceFactory')
+    def test_create_from_memory_core_local(self, mock_emb_factory, mock_graph_factory, 
+                                          mock_file_factory, sample_concept_config, 
+                                          sample_file_config, mock_logger):
         mock_file_store = Mock()
         mock_graph_store = Mock()
         mock_emb_store = Mock()
@@ -573,8 +573,24 @@ class TestConceptGraphFactory:
         mock_graph_factory.create_local_store.return_value = mock_graph_store
         mock_emb_factory.create_local_store.return_value = mock_emb_store
         
-        result = ConceptGraphFactory.create_from_config(
-            sample_concept_config, sample_file_config, logger=mock_logger
+        # Create memory core config structure
+        memory_core_config = {
+            "embedding": {
+                "provider": sample_concept_config["provider"],
+                "api_key": sample_concept_config.get("embedding_api_key", ""),
+                "model": sample_concept_config.get("emb_model", "text-embedding-3-small"),
+                "dim": sample_concept_config.get("emb_dim", 1536)
+            },
+            "files": {
+                "graph_file": "graph.json",
+                "index_file": "emb_index.json"
+            }
+        }
+        
+        result = ConceptGraphFactory.create_from_memory_core(
+            memory_core_path="/test/memory_core",
+            memory_core_config=memory_core_config,
+            logger=mock_logger
         )
         
         assert isinstance(result, ConceptGraphService)

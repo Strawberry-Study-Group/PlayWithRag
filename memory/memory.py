@@ -384,45 +384,54 @@ class ConceptGraphFactory:
     """Factory for creating concept graph instances."""
     
     @staticmethod
-    def create_from_config(concept_graph_config: Dict[str, Any], 
-                          save_file_config: Dict[str, Any],
-                          world_name: str = "default_world",
-                          schema_file: Optional[str] = None,
-                          graph_file_name: str = "graph.json",
-                          index_file_name: str = "emb_index.json",
-                          logger: Optional[logging.Logger] = None) -> ConceptGraphService:
-        """Create concept graph from configuration dictionaries.
+    def create_from_memory_core(memory_core_path: str,
+                               memory_core_config: Dict[str, Any],
+                               logger: Optional[logging.Logger] = None) -> ConceptGraphService:
+        """Create concept graph from a memory core folder path.
         
         Args:
-            concept_graph_config: Configuration for embedding store (local/remote)
-            save_file_config: Configuration for file storage
-            world_name: Name of the world/game instance (creates unified folder)
-            schema_file: Optional schema file path
-            graph_file_name: Name of the graph JSON file
-            index_file_name: Name of the embedding index file
+            memory_core_path: Path to the memory core folder containing all data
+            memory_core_config: Configuration including embedding store and file names
             logger: Optional logger instance
             
         Returns:
             ConceptGraphService: Configured concept graph service
             
         Note:
-            All files (graph, embeddings, images) are stored in a single folder:
-            {save_path}/{world_name}/ for easy sharing and organization.
+            All files (graph, embeddings, images) are stored in the memory core folder.
+            
+        Expected memory_core_config structure:
+        {
+            "embedding": {
+                "provider": "local" | "remote",
+                "api_key": "...",
+                "model": "text-embedding-3-small",
+                "dim": 1536,
+                # for remote only:
+                "pinecone_api_key": "...",
+                "pinecone_index_name": "...",
+                "metric": "cosine"
+            },
+            "files": {
+                "schema_file": "schema.json" (optional),
+                "graph_file": "graph.json",
+                "index_file": "emb_index.json"
+            }
+        }
         """
-        # Create unified directory path
-        from pathlib import Path
-        base_path = Path(save_file_config["save_path"])
-        world_path = base_path / world_name
+        # Extract config sections
+        embedding_config = memory_core_config["embedding"]
+        files_config = memory_core_config.get("files", {})
         
-        # Create file store with no additional prefix (everything goes in world folder)
-        if save_file_config["provider"] == "local":
-            file_store = FileStoreFactory.create_local_store(
-                str(world_path), "", logger  # Empty prefix - use world folder directly
-            )
-        elif save_file_config["provider"] == "gcp":
-            raise NotImplementedError("GCP file store is not implemented yet.")
-        else:
-            raise ValueError(f"Invalid file store provider: {save_file_config['provider']}")
+        # Get file names with defaults
+        schema_file = files_config.get("schema_file")
+        graph_file_name = files_config.get("graph_file", "graph.json")
+        index_file_name = files_config.get("index_file", "emb_index.json")
+        
+        # Create file store pointing directly to memory core
+        file_store = FileStoreFactory.create_local_store(
+            memory_core_path, "", logger  # Empty prefix - use memory core folder directly
+        )
         
         # Create graph store
         graph_store = GraphStoreFactory.create_local_store(
@@ -430,27 +439,27 @@ class ConceptGraphFactory:
         )
         
         # Create embedding store
-        if concept_graph_config["provider"] == "remote":
+        if embedding_config["provider"] == "remote":
             emb_store = EmbServiceFactory.create_pinecone_store(
-                concept_graph_config["embedding_api_key"],
-                concept_graph_config["pinecone_api_key"],
-                concept_graph_config["pinecone_index_name"],
-                concept_graph_config["emb_model"],
-                concept_graph_config["emb_dim"],
-                concept_graph_config.get("metric", "cosine"),
+                embedding_config["api_key"],
+                embedding_config["pinecone_api_key"],
+                embedding_config["pinecone_index_name"],
+                embedding_config["model"],
+                embedding_config["dim"],
+                embedding_config.get("metric", "cosine"),
                 logger=logger
             )
-        elif concept_graph_config["provider"] == "local":
+        elif embedding_config["provider"] == "local":
             emb_store = EmbServiceFactory.create_local_store(
-                concept_graph_config["embedding_api_key"],
+                embedding_config["api_key"],
                 file_store,
-                concept_graph_config["emb_model"],
-                concept_graph_config["emb_dim"],
+                embedding_config["model"],
+                embedding_config["dim"],
                 index_file_name,
                 logger
             )
         else:
-            raise ValueError(f"Invalid embedding store provider: {concept_graph_config['provider']}")
+            raise ValueError(f"Invalid embedding store provider: {embedding_config['provider']}")
         
         return ConceptGraphService(file_store, graph_store, emb_store, logger)
     
@@ -460,71 +469,5 @@ class ConceptGraphFactory:
         """Create concept graph with custom components."""
         return ConceptGraphService(file_store, graph_store, emb_store, logger)
     
-    @staticmethod
-    def create_world(base_path: str, world_name: str, 
-                    openai_api_key: str, 
-                    use_pinecone: bool = False,
-                    pinecone_api_key: str = None,
-                    pinecone_index_name: str = None,
-                    logger: Optional[logging.Logger] = None) -> ConceptGraphService:
-        """Create a complete world with unified folder structure.
-        
-        This is a convenience method that creates a world where all data
-        (graph, embeddings, images) are stored in a single folder for easy sharing.
-        
-        Args:
-            base_path: Base directory where world folders are created
-            world_name: Name of the world (creates folder: base_path/world_name/)
-            openai_api_key: OpenAI API key for embeddings
-            use_pinecone: Whether to use Pinecone (remote) or FAISS (local) for embeddings
-            pinecone_api_key: Pinecone API key (required if use_pinecone=True)
-            pinecone_index_name: Pinecone index name (required if use_pinecone=True)
-            logger: Optional logger
-            
-        Returns:
-            ConceptGraphService: Configured service with unified storage
-            
-        Example:
-            # Creates everything in /data/my_game_world/
-            concept_graph = ConceptGraphFactory.create_world(
-                base_path="/data",
-                world_name="my_game_world", 
-                openai_api_key="sk-...",
-                use_pinecone=False  # Uses local FAISS storage
-            )
-        """
-        # Configure file storage
-        save_file_config = {
-            "provider": "local",
-            "save_path": base_path
-        }
-        
-        # Configure concept graph storage
-        if use_pinecone:
-            if not pinecone_api_key or not pinecone_index_name:
-                raise ValueError("pinecone_api_key and pinecone_index_name required when use_pinecone=True")
-            
-            concept_graph_config = {
-                "provider": "remote",
-                "embedding_api_key": openai_api_key,
-                "pinecone_api_key": pinecone_api_key,
-                "pinecone_index_name": pinecone_index_name,
-                "emb_model": "text-embedding-3-small",
-                "emb_dim": 1536
-            }
-        else:
-            concept_graph_config = {
-                "provider": "local", 
-                "embedding_api_key": openai_api_key,
-                "emb_model": "text-embedding-3-small",
-                "emb_dim": 1536
-            }
-        
-        return ConceptGraphFactory.create_from_config(
-            concept_graph_config=concept_graph_config,
-            save_file_config=save_file_config,
-            world_name=world_name,
-            logger=logger
-        )
 
 

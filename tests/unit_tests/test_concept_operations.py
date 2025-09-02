@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import Mock
 import logging
 
-from concept_graph.concept_operations import (
+from memory.concept_operations import (
     ConceptTextExtractor,
     ConceptValidator,
     ConceptStatisticsCollector,
@@ -10,7 +10,7 @@ from concept_graph.concept_operations import (
     ConceptOperations,
     ConceptBuilder
 )
-from concept_graph.constants import ConceptGraphConstants
+from memory.constants import ConceptGraphConstants
 
 
 class TestConceptTextExtractor:

@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 from typing import Dict, Any, List
 
-from concept_graph.graph_store import (
+from memory.graph_store import (
     GraphStore,
     GraphStoreFactory,
     SchemaValidator,
@@ -21,7 +21,7 @@ from concept_graph.graph_store import (
     IGraphValidator,
     IGraphStore
 )
-from concept_graph.file_store import IFileStore
+from memory.file_store import IFileStore
 
 
 class MockFileStore(IFileStore):

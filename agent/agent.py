@@ -1,7 +1,7 @@
 import sys
 sys.path.append("..")
 from .shorterm_mem import ShortTermMemory
-from concept_graph.concept_graph import ConceptGraphFactory
+from memory.memory import ConceptGraphFactory
 from .action_node import *
 from .llm import LLM
 from render.render import ImgRender,ImgRenderWithReferanceImg
@@ -31,7 +31,7 @@ class Agent:
         self.longterm_mem = ConceptGraphFactory.create_from_config(
             self.config["concept_graph_config"], 
             self.config["save_file_config"],
-            world_name="agent_world"
+            memory_core_name="agent_world"
         )
         self.shorterm_mem = ShortTermMemory(self.config["shorterm_mem_config"], self.longterm_mem, self.config["save_file_config"])
         self.llm = LLM(config=self.config["llm_config"])

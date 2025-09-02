@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 import logging
 
-from concept_graph.file_store import (
+from memory.file_store import (
     LocalFileStore,
     FileStoreFactory,
     FileStoreError,

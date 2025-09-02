@@ -1,7 +1,7 @@
 import sys
 sys.path.append("..")
 import json
-from concept_graph.file_store import LocalFileStore
+from memory.file_store import LocalFileStore
 from collections import OrderedDict
 
 class ShortTermMemory:

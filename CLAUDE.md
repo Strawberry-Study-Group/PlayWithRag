@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-I am working on refactoring the code base. This is an AI-powered game engine with Retrieval-Augmented Generation (RAG) capabilities. The system creates interactive games using LLMs for narrative generation, Image genration models for scene visualization, and knowledge graphs for persistent world state.
+This is an AI-powered game engine with Retrieval-Augmented Generation (RAG) capabilities. The system creates interactive games using LLMs for narrative generation, Image generation models for scene visualization, and memory cores for persistent game state.
 
 ## Core Architecture
 
@@ -14,12 +14,12 @@ I am working on refactoring the code base. This is an AI-powered game engine wit
 - `agent/llm.py` - Multi-provider LLM abstraction (OpenAI, Anthropic)
 - `agent/shorterm_mem.py` - Session state management with LRU caching
 
-### RAG Memory System
-- **Long-term memory**: Knowledge graph in `concept_graph/` persists world state
+### Memory Core System
+- **Long-term memory**: Knowledge graphs stored in memory cores persist game state
 - **Short-term memory**: Session cache for recent interactions  
-- **Embedding store**: `concept_graph/emb_store.py` handles both Pinecone (cloud) and FAISS (local) vector storage
-- **Graph persistence**: JSON-based storage in `concept_graph/graph_store.py`
-- **File storage**: `concept_graph/file_store.py` abstracted file operations with interface-based design
+- **Embedding store**: `memory/emb_store.py` handles both Pinecone (cloud) and FAISS (local) vector storage
+- **Graph persistence**: JSON-based storage in `memory/graph_store.py`
+- **File storage**: `memory/file_store.py` abstracted file operations with interface-based design
 
 ### Multi-Modal Rendering
 - `render/render.py` - Image generation supporting OpenAI DALL-E, Replicate, and DeepInfra
@@ -34,19 +34,18 @@ jupyter notebook tests/agent_with_rendering_test.ipynb
 
 **Execute unit tests:**
 ```bash
-python -m pytest tests/
+python -m pytest tests/unit_tests/
 # or run individual test files:
-python tests/concept_graph_test.py
-python tests/emb_store_test.py
+python -m pytest tests/unit_tests/test_concept_graph.py
+python -m pytest tests/unit_tests/test_emb_store.py
 ```
 
-**Test specific components:**
+**Execute system tests:**
 ```bash
-# Test rendering system
-python tests/render_test.py
-
-# Test file operations  
-python tests/file_store_test.py
+python -m pytest tests/system_tests/
+# or run individual test suites:
+python -m pytest tests/system_tests/test_concept_graph_system.py
+python -m pytest tests/system_tests/test_memory_core_scenario.py
 ```
 
 ## Configuration
@@ -65,26 +64,55 @@ Install required packages:
 pip install openai anthropic pinecone-client numpy faiss-cpu scikit-image matplotlib requests replicate
 ```
 
-## Knowledge Graph Structure
+## Memory Core Structure
 
 - **Concepts**: NPCs, locations, items, player state (nodes)
 - **Relations**: has, owns, uses, knows, located_at (edges)  
-- **Persistence**: Incremental updates to local JSON files
+- **Persistence**: Each memory core is a self-contained folder with graph JSON files, embedding indices, and images
 - **Search**: Vector embeddings enable semantic retrieval of relevant context
+
+## Memory Core Usage
+
+### Creating a Memory Core
+```python
+from memory.memory import ConceptGraphFactory
+
+# Define memory core configuration
+memory_core_config = {
+    "embedding": {
+        "provider": "local",  # or "remote" for Pinecone
+        "api_key": "your_openai_api_key",
+        "model": "text-embedding-3-small",
+        "dim": 1536
+    },
+    "files": {
+        "graph_file": "graph.json",
+        "index_file": "emb_index.json"
+    }
+}
+
+# Create memory core instance
+memory_core = ConceptGraphFactory.create_from_memory_core(
+    memory_core_path="/path/to/your/memory_core_folder",
+    memory_core_config=memory_core_config
+)
+```
 
 ## Testing Strategy
 
-- **Interactive testing**: Jupyter notebooks in `tests/` for full system validation
-- **Unit tests**: Traditional Python test files for component isolation
-- **Test worlds**: Sample game data in `tests/concept_store/` and `tests/living_in_the_shadow/`
-- **Integration**: `tests/agent_with_rendering_test.ipynb` tests the complete pipeline
+- **Unit tests**: Component isolation in `tests/unit_tests/`
+- **System tests**: End-to-end testing in `tests/system_tests/`
+- **Memory core scenarios**: Full game session testing in `tests/system_tests/test_memory_core_scenario.py`
+- **Interactive testing**: Jupyter notebooks for full system validation
 
 ## File Organization
 
-- `agent/prompt_templates/` - AI prompt engineering for reasoning and retrieval
-- `tests/concept_store/` - Game world persistence layer
-- Images auto-saved to appropriate test directories during gameplay
-- All game state persists locally unless cloud storage configured
+- `memory/` - Memory core system (graphs, embeddings, file storage)
+- `agent/prompt_templates/` - AI prompt engineering for reasoning and retrieval  
+- `tests/unit_tests/` - Component isolation tests
+- `tests/system_tests/` - End-to-end integration tests
+- Images auto-saved to memory core directories during gameplay
+- Each memory core is completely self-contained and portable
 
 ## Provider Abstractions
 
@@ -139,11 +167,11 @@ class ConceptRepository(ABC):
     @abstractmethod
     def search_similar(self, query: str, limit: int) -> List[Concept]: pass
 
-class GameWorldRepository(ABC):
+class MemoryCoreRepository(ABC):
     @abstractmethod
-    def load_world(self, world_id: str) -> GameWorld: pass
+    def load_memory_core(self, memory_core_path: str) -> MemoryCore: pass
     @abstractmethod
-    def save_world(self, world: GameWorld) -> None: pass
+    def save_memory_core(self, memory_core: MemoryCore) -> None: pass
 ```
 
 #### 3. Event-Driven Architecture
@@ -157,7 +185,7 @@ class EventBus:
 
 # Enable loose coupling between components
 event_bus.subscribe("player_action", agent.handle_player_action)
-event_bus.subscribe("world_updated", memory.invalidate_cache)
+event_bus.subscribe("memory_core_updated", memory.invalidate_cache)
 ```
 
 #### 4. Configuration Management
@@ -207,8 +235,8 @@ class QueryHandler:
 3. **Command pattern** for UI → Agent communication (player actions)
 4. **State management** with immutable updates for UI reactivity
 
-#### For Graph Editor
-1. **Transaction support** - atomic operations for graph modifications
+#### For Memory Core Editor
+1. **Transaction support** - atomic operations for memory core modifications
 2. **Validation layer** - schema validation before persisting changes
 3. **Undo/Redo** - command pattern with reversible operations
 4. **Real-time sync** - event-driven updates between editor and game engine

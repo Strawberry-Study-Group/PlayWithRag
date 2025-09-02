@@ -6,8 +6,8 @@ from pathlib import Path
 import sys
 
 sys.path.append("../..")
-from concept_graph.concept_graph import ConceptGraphFactory
-from concept_graph.constants import ConceptGraphConstants
+from memory.memory import ConceptGraphFactory
+from memory.constants import ConceptGraphConstants
 
 # Import test configuration
 try:
@@ -45,13 +45,32 @@ class TestConceptGraphSystem(unittest.TestCase):
         self.file_store_config = get_file_store_config(self.test_dir)
         self.concept_graph_config = get_concept_graph_config()
         
-        # Create ConceptGraph using factory with unified world structure
-        self.concept_graph = ConceptGraphFactory.create_from_config(
-            self.concept_graph_config,
-            self.file_store_config,
-            world_name="test_world",  # All data stored in test_world/ subfolder
-            graph_file_name="test_graph.json",
-            index_file_name="test_emb_index.json"
+        # Create ConceptGraph using new memory core structure
+        memory_core_config = {
+            "embedding": {
+                "provider": self.concept_graph_config["provider"],
+                "api_key": self.concept_graph_config.get("embedding_api_key", ""),
+                "model": self.concept_graph_config.get("emb_model", "text-embedding-3-small"),
+                "dim": self.concept_graph_config.get("emb_dim", 1536)
+            },
+            "files": {
+                "graph_file": "test_graph.json",
+                "index_file": "test_emb_index.json"
+            }
+        }
+        
+        # Add remote-specific config if needed
+        if self.concept_graph_config["provider"] == "remote":
+            memory_core_config["embedding"].update({
+                "pinecone_api_key": self.concept_graph_config.get("pinecone_api_key", ""),
+                "pinecone_index_name": self.concept_graph_config.get("pinecone_index_name", ""),
+                "metric": self.concept_graph_config.get("metric", "cosine")
+            })
+        
+        memory_core_path = str(self.test_dir / "test_memory_core")
+        self.concept_graph = ConceptGraphFactory.create_from_memory_core(
+            memory_core_path=memory_core_path,
+            memory_core_config=memory_core_config
         )
     
     def tearDown(self):
@@ -214,21 +233,40 @@ class TestConceptGraphSystem(unittest.TestCase):
         # Save explicitly
         self.concept_graph.save_graph()
         
-        # Verify files were created in the unified world folder
-        world_dir = self.test_dir / "test_world"
-        graph_file = world_dir / "test_graph.json"
-        emb_file = world_dir / "test_emb_index.json"
+        # Verify files were created in the unified memory core folder
+        memory_core_dir = self.test_dir / "test_memory_core"
+        graph_file = memory_core_dir / "test_graph.json"
+        emb_file = memory_core_dir / "test_emb_index.json"
         
         self.assertTrue(graph_file.exists())
         self.assertTrue(emb_file.exists())
         
         # Create new ConceptGraph instance and verify data persisted
-        new_concept_graph = ConceptGraphFactory.create_from_config(
-            get_concept_graph_config(),
-            get_file_store_config(self.test_dir),
-            world_name="test_world",  # Same world name for persistence test
-            graph_file_name="test_graph.json",
-            index_file_name="test_emb_index.json"
+        concept_graph_config = get_concept_graph_config()
+        memory_core_config = {
+            "embedding": {
+                "provider": concept_graph_config["provider"],
+                "api_key": concept_graph_config.get("embedding_api_key", ""),
+                "model": concept_graph_config.get("emb_model", "text-embedding-3-small"),
+                "dim": concept_graph_config.get("emb_dim", 1536)
+            },
+            "files": {
+                "graph_file": "test_graph.json",
+                "index_file": "test_emb_index.json"
+            }
+        }
+        
+        if concept_graph_config["provider"] == "remote":
+            memory_core_config["embedding"].update({
+                "pinecone_api_key": concept_graph_config.get("pinecone_api_key", ""),
+                "pinecone_index_name": concept_graph_config.get("pinecone_index_name", ""),
+                "metric": concept_graph_config.get("metric", "cosine")
+            })
+        
+        memory_core_path = str(self.test_dir / "test_memory_core")
+        new_concept_graph = ConceptGraphFactory.create_from_memory_core(
+            memory_core_path=memory_core_path,
+            memory_core_config=memory_core_config
         )
         
         # Should be able to retrieve the concept
@@ -254,28 +292,28 @@ class TestConceptGraphSystem(unittest.TestCase):
         self.assertEqual(stats["concept_types"]["company"], 1)
     
     def test_unified_folder_structure(self):
-        """Test that all files are stored in a unified folder structure."""
+        """Test that all files are stored in a unified memory core folder structure."""
         # Add some data
         concept_id = self.concept_graph.add_concept("Test Concept", "test", {"value": 123})
         
         # Save to ensure files are created
         self.concept_graph.save_graph()
         
-        # Verify unified folder structure exists
-        world_dir = self.test_dir / "test_world"
-        self.assertTrue(world_dir.exists())
-        self.assertTrue(world_dir.is_dir())
+        # Verify unified memory core folder structure exists
+        memory_core_dir = self.test_dir / "test_memory_core"
+        self.assertTrue(memory_core_dir.exists())
+        self.assertTrue(memory_core_dir.is_dir())
         
         # Verify all expected files are in the same directory
-        graph_file = world_dir / "test_graph.json"
-        emb_file = world_dir / "test_emb_index.json"
+        graph_file = memory_core_dir / "test_graph.json"
+        emb_file = memory_core_dir / "test_emb_index.json"
         
         self.assertTrue(graph_file.exists())
         self.assertTrue(emb_file.exists())
         
         # Verify files are actually in the same directory
         self.assertEqual(graph_file.parent, emb_file.parent)
-        self.assertEqual(str(graph_file.parent), str(world_dir))
+        self.assertEqual(str(graph_file.parent), str(memory_core_dir))
 
 
 @unittest.skipIf(
@@ -285,29 +323,42 @@ class TestConceptGraphSystem(unittest.TestCase):
 class TestConceptGraphSystemWithAPI(TestConceptGraphSystem):
     """System tests that require API access. Only run when API key is provided."""
     
-    def test_create_world_convenience_method(self):
-        """Test the create_world convenience method for unified folder structure."""
+    def test_create_memory_core_method(self):
+        """Test creating a memory core with the new structure."""
         from tests.test_config import OPENAI_API_KEY
         
-        # Create a world using the convenience method
-        world_concept_graph = ConceptGraphFactory.create_world(
-            base_path=str(self.test_dir),
-            world_name="convenience_world",
-            openai_api_key=OPENAI_API_KEY,
-            use_pinecone=False  # Use local FAISS
+        # Create memory core config
+        memory_core_config = {
+            "embedding": {
+                "provider": "local",
+                "api_key": OPENAI_API_KEY,
+                "model": "text-embedding-3-small",
+                "dim": 1536
+            },
+            "files": {
+                "graph_file": "graph.json",
+                "index_file": "emb_index.json"
+            }
+        }
+        
+        # Create a memory core using the new method
+        memory_core_path = str(self.test_dir / "convenience_memory_core")
+        world_concept_graph = ConceptGraphFactory.create_from_memory_core(
+            memory_core_path=memory_core_path,
+            memory_core_config=memory_core_config
         )
         
         # Add some test data
-        concept_id = world_concept_graph.add_concept("Convenience Test", "test", {"method": "create_world"})
+        concept_id = world_concept_graph.add_concept("Convenience Test", "test", {"method": "create_memory_core"})
         world_concept_graph.save_graph()
         
-        # Verify the unified folder structure was created
-        world_dir = self.test_dir / "convenience_world"
-        self.assertTrue(world_dir.exists())
+        # Verify the memory core folder structure was created
+        memory_core_dir = self.test_dir / "convenience_memory_core"
+        self.assertTrue(memory_core_dir.exists())
         
         # Verify both graph and embedding files exist in the same directory
-        graph_file = world_dir / "graph.json"  # Default names
-        emb_file = world_dir / "emb_index.json"
+        graph_file = memory_core_dir / "graph.json"  # Default names
+        emb_file = memory_core_dir / "emb_index.json"
         
         self.assertTrue(graph_file.exists())
         self.assertTrue(emb_file.exists())
@@ -315,7 +366,7 @@ class TestConceptGraphSystemWithAPI(TestConceptGraphSystem):
         # Verify data can be retrieved
         retrieved_concept = world_concept_graph.get_concept(concept_id)
         self.assertIsNotNone(retrieved_concept)
-        self.assertEqual(retrieved_concept[ConceptGraphConstants.FIELD_NODE_ATTRIBUTES]["method"], "create_world")
+        self.assertEqual(retrieved_concept[ConceptGraphConstants.FIELD_NODE_ATTRIBUTES]["method"], "create_memory_core")
 
 
 if __name__ == '__main__':

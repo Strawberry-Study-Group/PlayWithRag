@@ -9,7 +9,7 @@ from typing import List, Dict, Any
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from concept_graph.concept_graph import ConceptGraphFactory
+from memory.memory import ConceptGraphFactory
 from .config import get_test_config, check_test_readiness
 
 
@@ -26,7 +26,7 @@ class TestBasicOperations:
         graph = ConceptGraphFactory.create_from_config(
             config["concept_graph_config"], 
             config["file_store_config"],
-            world_name="test_basic_local"
+            memory_core_name="test_basic_local"
         )
         graph.empty_graph()  # Start with clean graph
         yield graph
@@ -47,7 +47,7 @@ class TestBasicOperations:
         graph = ConceptGraphFactory.create_from_config(
             config["concept_graph_config"], 
             config["file_store_config"],
-            world_name="test_basic_remote"
+            memory_core_name="test_basic_remote"
         )
         graph.empty_graph()  # Start with clean graph
         yield graph

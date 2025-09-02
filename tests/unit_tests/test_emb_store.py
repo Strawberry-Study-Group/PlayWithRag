@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch, MagicMock
 import logging
 from typing import List, Tuple, Optional
 
-from concept_graph.emb_store import (
+from memory.emb_store import (
     EmbStoreService,
     EmbServiceFactory,
     OpenAIEmbeddingProvider,
@@ -200,8 +200,8 @@ class TestOpenAIEmbeddingProvider:
     def mock_logger(self):
         return Mock(spec=logging.Logger)
     
-    @patch('concept_graph.emb_store.OPENAI_AVAILABLE', True)
-    @patch('concept_graph.emb_store.OpenAI')
+    @patch('memory.emb_store.OPENAI_AVAILABLE', True)
+    @patch('memory.emb_store.OpenAI')
     def test_init_success(self, mock_openai_class, mock_logger):
         mock_client = Mock()
         mock_openai_class.return_value = mock_client
@@ -213,13 +213,13 @@ class TestOpenAIEmbeddingProvider:
         assert provider.logger == mock_logger
         mock_openai_class.assert_called_once_with(api_key="test_key")
     
-    @patch('concept_graph.emb_store.OPENAI_AVAILABLE', False)
+    @patch('memory.emb_store.OPENAI_AVAILABLE', False)
     def test_init_openai_not_available(self, mock_logger):
         with pytest.raises(ImportError, match="OpenAI package not available"):
             OpenAIEmbeddingProvider("test_key", "test_model", mock_logger)
     
-    @patch('concept_graph.emb_store.OPENAI_AVAILABLE', True)
-    @patch('concept_graph.emb_store.OpenAI')
+    @patch('memory.emb_store.OPENAI_AVAILABLE', True)
+    @patch('memory.emb_store.OpenAI')
     def test_generate_embedding_success(self, mock_openai_class, mock_logger):
         # Setup mock client
         mock_client = Mock()
@@ -239,8 +239,8 @@ class TestOpenAIEmbeddingProvider:
             model="test_model"
         )
     
-    @patch('concept_graph.emb_store.OPENAI_AVAILABLE', True)
-    @patch('concept_graph.emb_store.OpenAI')
+    @patch('memory.emb_store.OPENAI_AVAILABLE', True)
+    @patch('memory.emb_store.OpenAI')
     def test_generate_embedding_api_error(self, mock_openai_class, mock_logger):
         # Setup mock client to raise exception
         mock_client = Mock()
@@ -272,8 +272,8 @@ class TestFAISSVectorStore:
     def mock_logger(self):
         return Mock(spec=logging.Logger)
     
-    @patch('concept_graph.emb_store.FAISS_AVAILABLE', True)
-    @patch('concept_graph.emb_store.faiss')
+    @patch('memory.emb_store.FAISS_AVAILABLE', True)
+    @patch('memory.emb_store.faiss')
     def test_init_success(self, mock_faiss, mock_file_store, mock_logger):
         mock_index = Mock()
         mock_faiss.IndexFlatIP.return_value = mock_index
@@ -285,13 +285,13 @@ class TestFAISSVectorStore:
         assert store.index_file_name == "test_index.json"
         assert "default" in store.namespaces
     
-    @patch('concept_graph.emb_store.FAISS_AVAILABLE', False)
+    @patch('memory.emb_store.FAISS_AVAILABLE', False)
     def test_init_faiss_not_available(self, mock_file_store, mock_logger):
         with pytest.raises(ImportError, match="FAISS package not available"):
             FAISSVectorStore(384, mock_file_store, "test_index.json", mock_logger)
     
-    @patch('concept_graph.emb_store.FAISS_AVAILABLE', True)
-    @patch('concept_graph.emb_store.faiss')
+    @patch('memory.emb_store.FAISS_AVAILABLE', True)
+    @patch('memory.emb_store.faiss')
     def test_insert_and_get_node_emb(self, mock_faiss, mock_file_store, mock_logger):
         # Setup mocks
         mock_index = Mock()
@@ -335,8 +335,8 @@ class TestPineconeVectorStore:
     def mock_logger(self):
         return Mock(spec=logging.Logger)
     
-    @patch('concept_graph.emb_store.PINECONE_AVAILABLE', True)
-    @patch('concept_graph.emb_store.Pinecone')
+    @patch('memory.emb_store.PINECONE_AVAILABLE', True)
+    @patch('memory.emb_store.Pinecone')
     def test_init_success(self, mock_pinecone_class, mock_logger):
         # Setup mocks
         mock_pc = Mock()
@@ -359,7 +359,7 @@ class TestPineconeVectorStore:
         assert store.dimension == 384
         mock_pc.create_index.assert_called_once()
     
-    @patch('concept_graph.emb_store.PINECONE_AVAILABLE', False)
+    @patch('memory.emb_store.PINECONE_AVAILABLE', False)
     def test_init_pinecone_not_available(self, mock_logger):
         with pytest.raises(ImportError, match="Pinecone package not available"):
             PineconeVectorStore("test_key", "test_index", 384, logger=mock_logger)
@@ -379,8 +379,8 @@ class TestEmbServiceFactory:
     def mock_logger(self):
         return Mock(spec=logging.Logger)
     
-    @patch('concept_graph.emb_store.OpenAIEmbeddingProvider')
-    @patch('concept_graph.emb_store.PineconeVectorStore')
+    @patch('memory.emb_store.OpenAIEmbeddingProvider')
+    @patch('memory.emb_store.PineconeVectorStore')
     def test_create_pinecone_store(self, mock_pinecone_store, mock_openai_provider, mock_logger):
         mock_provider_instance = Mock()
         mock_store_instance = Mock()
@@ -395,8 +395,8 @@ class TestEmbServiceFactory:
         assert result.embedding_provider == mock_provider_instance
         assert result.vector_store == mock_store_instance
     
-    @patch('concept_graph.emb_store.OpenAIEmbeddingProvider')
-    @patch('concept_graph.emb_store.FAISSVectorStore')
+    @patch('memory.emb_store.OpenAIEmbeddingProvider')
+    @patch('memory.emb_store.FAISSVectorStore')
     def test_create_local_store(self, mock_faiss_store, mock_openai_provider, mock_logger):
         mock_provider_instance = Mock()
         mock_store_instance = Mock()

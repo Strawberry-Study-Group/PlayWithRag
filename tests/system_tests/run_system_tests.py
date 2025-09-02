@@ -137,7 +137,7 @@ def run_comprehensive_tests() -> Dict[str, Tuple[bool, float]]:
     
     test_suites = [
         ("test_basic_operations.py", "Basic Operations"),
-        ("test_game_world_scenario.py", "Game World Scenario"),
+        ("test_memory_core_scenario.py", "Memory Core Scenario"),
         ("test_advanced_operations.py", "Advanced Operations"),
         ("test_integration_scenarios.py", "Integration Scenarios")
     ]

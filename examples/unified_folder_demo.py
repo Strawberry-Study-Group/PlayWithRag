@@ -14,7 +14,7 @@ import os
 # Add the parent directory to path so we can import from concept_graph
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from concept_graph.concept_graph import ConceptGraphFactory
+from memory.memory import ConceptGraphFactory
 
 
 def demo_unified_folder_structure():
@@ -27,20 +27,25 @@ def demo_unified_folder_structure():
     temp_dir = Path(tempfile.mkdtemp())
     print(f"📁 Demo directory: {temp_dir}")
     
-    # Demo 1: Using create_world convenience method
-    print("\n🌍 Creating world using convenience method...")
+    # Demo 1: Using create_from_memory_core method
+    print("\n🧠 Creating memory core...")
     try:
         # This would work with real API key - using dummy for structure demo
-        concept_graph = ConceptGraphFactory.create_world(
-            base_path=str(temp_dir),
-            world_name="my_game_world",
-            openai_api_key="dummy-key-for-demo",  # Replace with real key
-            use_pinecone=False  # Use local FAISS storage
+        concept_graph_config = {
+            "provider": "local",
+            "embedding_api_key": "dummy-key-for-demo",
+            "emb_model": "text-embedding-3-small",
+            "emb_dim": 1536
+        }
+        
+        concept_graph = ConceptGraphFactory.create_from_memory_core(
+            memory_core_path=str(temp_dir / "my_memory_core"),
+            concept_graph_config=concept_graph_config
         )
         
-        world_dir = temp_dir / "my_game_world"
-        print(f"✅ World created at: {world_dir}")
-        print(f"   Directory exists: {world_dir.exists()}")
+        memory_core_dir = temp_dir / "my_memory_core"
+        print(f"✅ Memory core created at: {memory_core_dir}")
+        print(f"   Directory exists: {memory_core_dir.exists()}")
         
     except Exception as e:
         print(f"⚠️  Note: This demo uses a dummy API key, so embedding operations will fail.")
@@ -66,7 +71,7 @@ def demo_unified_folder_structure():
         concept_graph2 = ConceptGraphFactory.create_from_config(
             concept_graph_config=concept_graph_config,
             save_file_config=file_store_config,
-            world_name="another_world",  # Different world name
+            memory_core_name="another_world",  # Different world name
             graph_file_name="game_graph.json",
             index_file_name="game_embeddings.json"
         )
@@ -91,13 +96,13 @@ def demo_unified_folder_structure():
     # Demo 3: Show sharing benefits
     print(f"\n📦 SHARING BENEFITS:")
     print(f"   • Each world is completely self-contained")
-    print(f"   • Copy entire folder to share: cp -r {temp_dir}/my_game_world /destination/")
+    print(f"   • Copy entire folder to share: cp -r {temp_dir}/my_memory_core /destination/")
     print(f"   • All data together: graph.json, emb_index.json, images/")
     print(f"   • No scattered files across different directories")
     
     # Demo 4: Multiple worlds
     print(f"\n🌐 MULTIPLE WORLDS:")
-    print(f"   • Each world_name creates separate folder")
+    print(f"   • Each memory_core_name creates separate folder")
     print(f"   • No conflicts between different games/scenarios")
     print(f"   • Easy to organize: worlds/rpg_game/, worlds/story_mode/, etc.")
     
@@ -118,11 +123,11 @@ def show_usage_examples():
     
     print("""
 # Example 1: Simple world creation
-from concept_graph.concept_graph import ConceptGraphFactory
+from memory.memory import ConceptGraphFactory
 
 concept_graph = ConceptGraphFactory.create_world(
     base_path="/data/games",
-    world_name="fantasy_rpg", 
+    memory_core_name="fantasy_rpg", 
     openai_api_key="your-api-key",
     use_pinecone=False
 )
@@ -134,10 +139,10 @@ concept_graph = ConceptGraphFactory.create_world(
 
 # Example 2: Multiple worlds
 world1 = ConceptGraphFactory.create_world(
-    base_path="/data", world_name="world1", openai_api_key="key"
+    base_path="/data", memory_core_name="world1", openai_api_key="key"
 )
 world2 = ConceptGraphFactory.create_world(
-    base_path="/data", world_name="world2", openai_api_key="key"  
+    base_path="/data", memory_core_name="world2", openai_api_key="key"  
 )
 
 # Creates:
@@ -156,7 +161,7 @@ file_config = {"provider": "local", "save_path": "/data"}
 cg = ConceptGraphFactory.create_from_config(
     concept_graph_config=config,
     save_file_config=file_config, 
-    world_name="custom_world"
+    memory_core_name="custom_world"
 )
 """)
 
