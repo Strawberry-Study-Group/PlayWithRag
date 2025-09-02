@@ -108,3 +108,6 @@ tests/**/test_*.png
 Thumbs.db
 unit_test_save/graph/emb_index.json
 tests/system_tests/test_memory_cores/comprehensive_memory_core_1756789964/config.json
+tests/manual_tests/sys_test_memory_core/config.json
+tests/manual_tests/sys_test_memory_core/data/emb_index.json
+tests/manual_tests/sys_test_memory_core/data/graph.json

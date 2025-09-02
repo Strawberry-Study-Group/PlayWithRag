@@ -73,6 +73,12 @@ pip install openai anthropic pinecone-client numpy faiss-cpu scikit-image matplo
 - **Persistence**: Each memory core is a self-contained folder with graph JSON files, embedding indices, and images
 - **Search**: Vector embeddings enable semantic retrieval of relevant context
 
+### Graph Schema
+- **Node types**: character, location, item, concept, event, organization, skill, custom
+- **Edge types**: has, owns, uses, knows, located_at, belongs_to, contains, leads_to, requires, causes, enables, prevents, follows, custom
+- **Image support**: Single `image_path` for primary image + `refs.ref_img` array for additional images
+- **References**: `refs` object with arrays for img, audio, video, docs file paths
+
 ## Memory Core Usage
 
 ### Creating a Memory Core
