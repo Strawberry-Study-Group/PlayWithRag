@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Optional, Dict, Any
+from typing import List, Tuple, Optional, Dict, Any, TYPE_CHECKING
 import re
 import json
 import numpy as np
@@ -26,6 +26,9 @@ try:
     FAISS_AVAILABLE = True
 except ImportError:
     FAISS_AVAILABLE = False
+
+if TYPE_CHECKING:
+    from .file_store import IFileStore
 
 class EmbStoreError(Exception):
     """Base exception for embedding store operations."""
@@ -95,8 +98,8 @@ class IVectorStore(ABC):
         pass
 
 
-class IEmbStore(ABC):
-    """Interface for embedding store operations."""
+class IEmbService(ABC):
+    """Interface for embedding service operations."""
     
     @abstractmethod
     def insert_node_emb(self, node_id: str, node_text: str, namespace: Optional[str] = None) -> None:
@@ -276,7 +279,7 @@ class PineconeVectorStore(IVectorStore):
 class FAISSVectorStore(IVectorStore):
     """FAISS vector store implementation."""
     
-    def __init__(self, dimension: int, file_store, index_file_name: str = "emb_index.json",
+    def __init__(self, dimension: int, file_store: 'IFileStore', index_file_name: str = "emb_index.json",
                  logger: Optional[logging.Logger] = None):
         if not FAISS_AVAILABLE:
             raise ImportError("FAISS package not available. Install with: pip install faiss-cpu")
@@ -453,7 +456,7 @@ class FAISSVectorStore(IVectorStore):
             raise IndexError(f"Failed to delete index: {e}")
 
 
-class EmbStore(IEmbStore):
+class EmbStore(IEmbService):
     """Main embedding store using Pinecone (deprecated - use EmbStoreService)."""
     
     def __init__(self, emb_api_key: str, pinecone_api_key: str, pinecone_index_name: str,
@@ -505,9 +508,9 @@ class EmbStore(IEmbStore):
         self.vector_store.save_index()
 
 
-class EmbStoreLocal(IEmbStore):
+class EmbStoreLocal(IEmbService):
     """Local embedding store using FAISS (deprecated - use EmbStoreService)."""
-    def __init__(self, emb_api_key: str, file_store, emb_model: str, emb_dim: int, 
+    def __init__(self, emb_api_key: str, file_store: 'IFileStore', emb_model: str, emb_dim: int, 
                  index_file_name: str = "emb_index.json", logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger(__name__)
         self.logger.warning("EmbStoreLocal is deprecated. Use EmbStoreService with dependency injection.")
@@ -563,7 +566,7 @@ class EmbStoreLocal(IEmbStore):
         self.vector_store.save_index()
 
 
-class EmbStoreService(IEmbStore):
+class EmbStoreService(IEmbService):
     """Main embedding store service with dependency injection."""
     
     def __init__(self, embedding_provider: IEmbeddingProvider, vector_store: IVectorStore,
@@ -607,8 +610,8 @@ class EmbStoreService(IEmbStore):
         self.vector_store.save_index()
 
 
-class EmbStoreFactory:
-    """Factory for creating embedding store instances."""
+class EmbServiceFactory:
+    """Factory for creating embedding service instances."""
     
     @staticmethod
     def create_pinecone_store(emb_api_key: str, pinecone_api_key: str, index_name: str,
@@ -621,7 +624,7 @@ class EmbStoreFactory:
         return EmbStoreService(embedding_provider, vector_store, logger)
     
     @staticmethod
-    def create_local_store(emb_api_key: str, file_store, emb_model: str, emb_dim: int,
+    def create_local_store(emb_api_key: str, file_store: 'IFileStore', emb_model: str, emb_dim: int,
                           index_file_name: str = "emb_index.json",
                           logger: Optional[logging.Logger] = None) -> EmbStoreService:
         """Create embedding store with local FAISS backend."""

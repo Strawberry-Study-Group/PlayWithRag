@@ -1,10 +1,10 @@
 import sys
 import json
-sys.path.append("..")
+sys.path.append("../..")
 
 from agent.agent import Agent
 
-config_path = "../agent/config_local.json"
+config_path = "../../agent/config_local.json"
 
 agent = Agent(config_path)
 agent.shorterm_mem.set_attribute("player_name", "Dabolaw")

@@ -9,7 +9,7 @@ from typing import List, Tuple, Optional
 
 from concept_graph.emb_store import (
     EmbStoreService,
-    EmbStoreFactory,
+    EmbServiceFactory,
     OpenAIEmbeddingProvider,
     FAISSVectorStore,
     PineconeVectorStore,
@@ -19,7 +19,7 @@ from concept_graph.emb_store import (
     NamespaceError,
     IEmbeddingProvider,
     IVectorStore,
-    IEmbStore
+    IEmbService
 )
 
 
@@ -79,6 +79,10 @@ class MockVectorStore(IVectorStore):
             self.data.clear()
         elif namespace in self.data:
             del self.data[namespace]
+    
+    def save_index(self) -> None:
+        """Mock save index method."""
+        pass
 
 
 class TestEmbStoreService:
@@ -312,13 +316,17 @@ class TestFAISSVectorStore:
         # Insert embedding
         store.insert_node_emb("test_node", test_embedding)
         
-        # Verify insert was called
+        # Verify insert was called (FAISS only saves to file when save_index is called)
         mock_index.add.assert_called()
-        mock_file_store.add_file.assert_called()
+        mock_file_store.add_file.assert_not_called()  # Should not be called on insert
         
         # Get embedding
         result = store.get_node_emb("test_node")
         assert result is not None
+        
+        # Test saving index
+        store.save_index()
+        mock_file_store.add_file.assert_called_once()  # Should be called when saving
 
 
 class TestPineconeVectorStore:
@@ -365,7 +373,7 @@ class TestPineconeVectorStore:
             PineconeVectorStore._validate_index_name(None, "Invalid_Name")
 
 
-class TestEmbStoreFactory:
+class TestEmbServiceFactory:
     
     @pytest.fixture
     def mock_logger(self):
@@ -379,7 +387,7 @@ class TestEmbStoreFactory:
         mock_openai_provider.return_value = mock_provider_instance
         mock_pinecone_store.return_value = mock_store_instance
         
-        result = EmbStoreFactory.create_pinecone_store(
+        result = EmbServiceFactory.create_pinecone_store(
             "emb_key", "pc_key", "index", "model", 384, logger=mock_logger
         )
         
@@ -396,7 +404,7 @@ class TestEmbStoreFactory:
         mock_faiss_store.return_value = mock_store_instance
         mock_file_store = Mock()
         
-        result = EmbStoreFactory.create_local_store(
+        result = EmbServiceFactory.create_local_store(
             "emb_key", mock_file_store, "model", 384, logger=mock_logger
         )
         
@@ -408,7 +416,7 @@ class TestEmbStoreFactory:
         mock_provider = Mock(spec=IEmbeddingProvider)
         mock_store = Mock(spec=IVectorStore)
         
-        result = EmbStoreFactory.create_custom_store(mock_provider, mock_store, mock_logger)
+        result = EmbServiceFactory.create_custom_store(mock_provider, mock_store, mock_logger)
         
         assert isinstance(result, EmbStoreService)
         assert result.embedding_provider == mock_provider
@@ -437,15 +445,15 @@ class TestInterfaces:
             assert callable(getattr(IVectorStore, method_name))
     
     def test_emb_store_interface(self):
-        """Test that IEmbStore defines required methods."""
+        """Test that IEmbService defines required methods."""
         required_methods = [
             'insert_node_emb', 'update_node_emb', 'delete_node_emb',
             'get_node_emb', 'query_similar_nodes', 'delete_index'
         ]
         
         for method_name in required_methods:
-            assert hasattr(IEmbStore, method_name)
-            assert callable(getattr(IEmbStore, method_name))
+            assert hasattr(IEmbService, method_name)
+            assert callable(getattr(IEmbService, method_name))
 
 
 class TestErrorHandling:

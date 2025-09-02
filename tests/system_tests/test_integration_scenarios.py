@@ -9,7 +9,7 @@ from typing import List, Dict, Any
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from concept_graph.concept_graph import ConceptGraph
+from concept_graph.concept_graph import ConceptGraphFactory, ConceptGraphService
 from .config import get_test_config, check_test_readiness
 
 
@@ -23,7 +23,11 @@ class TestIntegrationScenarios:
             pytest.skip("API keys not configured for testing")
         
         config = get_test_config(use_remote=False)
-        graph = ConceptGraph(config["concept_graph_config"], config["file_store_config"])
+        graph = ConceptGraphFactory.create_from_config(
+            config["concept_graph_config"], 
+            config["file_store_config"],
+            world_name="test_integration"
+        )
         graph.empty_graph()
         yield graph
         
@@ -47,7 +51,7 @@ class TestIntegrationScenarios:
         # Phase 4: World state queries
         self._verify_world_state(persistent_graph, world_concepts)
     
-    def _create_initial_world(self, graph: ConceptGraph) -> Dict[str, str]:
+    def _create_initial_world(self, graph: ConceptGraphService) -> Dict[str, str]:
         """Create initial game world concepts."""
         concepts = {}
         
@@ -100,7 +104,7 @@ class TestIntegrationScenarios:
         graph.save_graph()
         return concepts
     
-    def _simulate_player_actions(self, graph: ConceptGraph, world_concepts: Dict[str, str]):
+    def _simulate_player_actions(self, graph: ConceptGraphService, world_concepts: Dict[str, str]):
         """Simulate player actions that modify the world."""
         # Player investigates the missing caravan
         forest_road_id = graph.add_concept(
@@ -157,7 +161,7 @@ class TestIntegrationScenarios:
         
         graph.save_graph()
     
-    def _simulate_dynamic_content(self, graph: ConceptGraph, world_concepts: Dict[str, str]):
+    def _simulate_dynamic_content(self, graph: ConceptGraphService, world_concepts: Dict[str, str]):
         """Simulate dynamic content generation based on player progress."""
         # Generate consequence of player actions - village reaction
         village_guard_id = graph.add_concept(
@@ -204,7 +208,7 @@ class TestIntegrationScenarios:
         
         graph.save_graph()
     
-    def _verify_world_state(self, graph: ConceptGraph, world_concepts: Dict[str, str]):
+    def _verify_world_state(self, graph: ConceptGraphService, world_concepts: Dict[str, str]):
         """Verify the current state of the world through queries."""
         # Test location-based queries
         village_results = graph.query_similar_concepts("peaceful village community", top_k=5)
@@ -246,7 +250,7 @@ class TestIntegrationScenarios:
         # Test knowledge connections and inference
         self._verify_knowledge_connections(persistent_graph, initial_concepts)
     
-    def _create_academic_knowledge_base(self, graph: ConceptGraph) -> Dict[str, str]:
+    def _create_academic_knowledge_base(self, graph: ConceptGraphService) -> Dict[str, str]:
         """Create an academic knowledge base scenario."""
         concepts = {}
         
@@ -308,7 +312,7 @@ class TestIntegrationScenarios:
         graph.save_graph()
         return concepts
     
-    def _simulate_knowledge_discovery(self, graph: ConceptGraph, concepts: Dict[str, str]):
+    def _simulate_knowledge_discovery(self, graph: ConceptGraphService, concepts: Dict[str, str]):
         """Simulate new discoveries and research connections."""
         # New breakthrough discovery
         breakthrough_id = graph.add_concept(
@@ -368,7 +372,7 @@ class TestIntegrationScenarios:
         
         graph.save_graph()
     
-    def _verify_knowledge_connections(self, graph: ConceptGraph, concepts: Dict[str, str]):
+    def _verify_knowledge_connections(self, graph: ConceptGraphService, concepts: Dict[str, str]):
         """Verify knowledge connections and cross-field relationships."""
         # Test interdisciplinary discovery
         interdisciplinary_results = graph.query_similar_concepts(
@@ -409,7 +413,7 @@ class TestIntegrationScenarios:
         # Test recommendation generation
         self._verify_content_recommendations(persistent_graph, content_concepts)
     
-    def _create_content_library(self, graph: ConceptGraph) -> Dict[str, str]:
+    def _create_content_library(self, graph: ConceptGraphService) -> Dict[str, str]:
         """Create a content library for recommendation testing."""
         concepts = {}
         
@@ -476,7 +480,7 @@ class TestIntegrationScenarios:
         graph.save_graph()
         return concepts
     
-    def _simulate_user_preferences(self, graph: ConceptGraph, concepts: Dict[str, str]):
+    def _simulate_user_preferences(self, graph: ConceptGraphService, concepts: Dict[str, str]):
         """Simulate user interactions and preference learning."""
         # Alice likes sci-fi content
         graph.add_relation(concepts["user_alice"], concepts["sci-fi_novel:_dune"], "likes")
@@ -502,7 +506,7 @@ class TestIntegrationScenarios:
         
         graph.save_graph()
     
-    def _verify_content_recommendations(self, graph: ConceptGraph, concepts: Dict[str, str]):
+    def _verify_content_recommendations(self, graph: ConceptGraphService, concepts: Dict[str, str]):
         """Verify content recommendation generation."""
         # Test recommendations for Alice (sci-fi fan)
         alice_related, alice_relations = graph.get_related_concepts(concepts["user_alice"], hop=2)

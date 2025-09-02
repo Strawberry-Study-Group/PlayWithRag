@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Tuple
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from concept_graph.concept_graph import ConceptGraph
+from concept_graph.concept_graph import ConceptGraphFactory, ConceptGraphService
 from .config import get_test_config, check_test_readiness
 
 
@@ -22,7 +22,11 @@ class TestGameWorldScenario:
             pytest.skip("API keys not configured for testing")
         
         config = get_test_config(use_remote=False)
-        graph = ConceptGraph(config["concept_graph_config"], config["file_store_config"])
+        graph = ConceptGraphFactory.create_from_config(
+            config["concept_graph_config"], 
+            config["file_store_config"],
+            world_name="test_game_world"
+        )
         graph.empty_graph()
         
         # Create the game world based on the notebook scenario
@@ -36,7 +40,7 @@ class TestGameWorldScenario:
         except Exception:
             pass
     
-    def _populate_game_world(self, graph: ConceptGraph) -> Dict[str, str]:
+    def _populate_game_world(self, graph: ConceptGraphService) -> Dict[str, str]:
         """Populate the game world with NPCs, events, and locations."""
         concept_ids = {}
         

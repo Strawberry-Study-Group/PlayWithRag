@@ -11,7 +11,6 @@ import numpy as np
 from concept_graph.concept_graph import (
     ConceptGraphService,
     ConceptGraphFactory,
-    ConceptGraph,
     ConceptGraphError,
     ConceptNotFoundError,
     RelationNotFoundError,
@@ -19,7 +18,7 @@ from concept_graph.concept_graph import (
 )
 from concept_graph.file_store import IFileStore
 from concept_graph.graph_store import IGraphStore
-from concept_graph.emb_store import IEmbStore
+from concept_graph.emb_store import IEmbService
 
 
 class MockFileStore(IFileStore):
@@ -207,7 +206,7 @@ class MockGraphStore(IGraphStore):
         return list(self.graph["node_dict"].values())
 
 
-class MockEmbStore(IEmbStore):
+class MockEmbStore(IEmbService):
     """Mock embedding store for testing."""
     
     def __init__(self):
@@ -562,7 +561,7 @@ class TestConceptGraphFactory:
     
     @patch('concept_graph.concept_graph.FileStoreFactory')
     @patch('concept_graph.concept_graph.GraphStoreFactory')
-    @patch('concept_graph.concept_graph.EmbStoreFactory')
+    @patch('concept_graph.concept_graph.EmbServiceFactory')
     def test_create_from_config_local(self, mock_emb_factory, mock_graph_factory, 
                                      mock_file_factory, sample_concept_config, 
                                      sample_file_config, mock_logger):
@@ -586,7 +585,7 @@ class TestConceptGraphFactory:
     def test_create_custom(self, mock_logger):
         mock_file_store = Mock(spec=IFileStore)
         mock_graph_store = Mock(spec=IGraphStore)
-        mock_emb_store = Mock(spec=IEmbStore)
+        mock_emb_store = Mock(spec=IEmbService)
         
         result = ConceptGraphFactory.create_custom(
             mock_file_store, mock_graph_store, mock_emb_store, mock_logger
@@ -598,40 +597,6 @@ class TestConceptGraphFactory:
         assert result.emb_store == mock_emb_store
 
 
-class TestLegacyConceptGraph:
-    
-    @patch('concept_graph.concept_graph.ConceptGraphFactory')
-    def test_legacy_concept_graph_compatibility(self, mock_factory):
-        """Test that legacy ConceptGraph class maintains backward compatibility."""
-        concept_config = {
-            "provider": "local",
-            "openai_api_key": "test_key",  # Legacy key name
-            "emb_model": "text-embedding-3-small",
-            "emb_dim": 384
-        }
-        
-        file_config = {
-            "provider": "local",
-            "save_path": "/tmp/test"
-        }
-        
-        mock_service = Mock(spec=ConceptGraphService)
-        mock_service.file_store = Mock()
-        mock_service.graph_store = Mock()
-        mock_service.emb_store = Mock()
-        mock_service.logger = Mock()
-        
-        mock_factory.create_from_config.return_value = mock_service
-        
-        legacy_graph = ConceptGraph(concept_config, file_config)
-        
-        # Verify the factory was called with mapped config
-        called_args = mock_factory.create_from_config.call_args[0]
-        concept_config_arg = called_args[0]
-        
-        # Should have mapped openai_api_key to embedding_api_key
-        assert "embedding_api_key" in concept_config_arg
-        assert concept_config_arg["embedding_api_key"] == "test_key"
 
 
 class TestInterfaces:

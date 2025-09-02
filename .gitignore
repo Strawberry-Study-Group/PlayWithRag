@@ -64,6 +64,9 @@ tests/unit_tests/__pycache__/__init__.cpython-311.pyc
 **/config_local.json
 **/*_local.json
 
+# Test configuration files with API keys
+tests/test_config.py
+
 # Python cache files
 __pycache__/
 *.py[cod]

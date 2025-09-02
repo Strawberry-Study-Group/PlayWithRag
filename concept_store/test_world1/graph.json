@@ -1,0 +1,26 @@
+{
+  "node_dict": {
+    "node1": {
+      "node_id": "node1",
+      "node_name": "Updated Node 1",
+      "node_type": "Updated Type 1",
+      "is_editable": true,
+      "node_attributes": {
+        "updated_key": "updated_value"
+      }
+    }
+  },
+  "edge_dict": {},
+  "neighbor_dict": {
+    "node1": []
+  },
+  "node_name_to_id": {
+    "Updated Node 1": "node1"
+  },
+  "metadata": {
+    "created_at": "2025-09-01T16:26:20.159044",
+    "updated_at": "2025-09-01T16:26:20.159071",
+    "version": "1.0",
+    "description": ""
+  }
+}
