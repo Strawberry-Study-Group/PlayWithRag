@@ -2,7 +2,6 @@
 import unittest
 import tempfile
 import shutil
-import os
 from pathlib import Path
 import sys
 
@@ -22,9 +21,10 @@ class TestMemoryCoreSystem(unittest.TestCase):
             self.skipTest("API keys not configured for testing")
         
         # Create memory core config using new schema
+        from .config import OPENAI_API_KEY
         self.memory_core_config = create_memory_core_config(
             provider="local",
-            api_key=os.getenv("OPENAI_API_KEY", "test_key"),
+            api_key=OPENAI_API_KEY,
             model="text-embedding-3-small",
             dim=1536,
             graph_file="test_graph.json",
@@ -34,6 +34,9 @@ class TestMemoryCoreSystem(unittest.TestCase):
         # Create memory core context
         self.memory_core_context = MemoryCoreTestContext(custom_config=self.memory_core_config)
         self.memory_core_path = self.memory_core_context.__enter__()
+        
+        # Set test_dir for backward compatibility with existing tests
+        self.test_dir = Path(self.memory_core_path).parent
         
         self.memory_core = MemoryCoreFactory.create_from_memory_core(
             memory_core_path=self.memory_core_path
@@ -200,15 +203,21 @@ class TestMemoryCoreSystem(unittest.TestCase):
         self.memory_core.save_graph()
         
         # Verify files were created in the unified memory core folder
-        memory_core_dir = self.test_dir / "test_memory_core"
-        graph_file = memory_core_dir / "test_graph.json"
-        emb_file = memory_core_dir / "test_emb_index.json"
+        memory_core_dir = Path(self.memory_core_path)
+        graph_file = memory_core_dir / "data" / "test_graph.json"
+        emb_file = memory_core_dir / "data" / "test_emb_index.json"
         
         self.assertTrue(graph_file.exists())
         self.assertTrue(emb_file.exists())
         
         # Create new ConceptGraph instance and verify data persisted
-        concept_graph_config = get_concept_graph_config()
+        from .config import OPENAI_API_KEY
+        concept_graph_config = {
+            "provider": "local",
+            "embedding_api_key": OPENAI_API_KEY,
+            "emb_model": "text-embedding-3-small",
+            "emb_dim": 1536
+        }
         memory_core_config = {
             "embedding": {
                 "provider": concept_graph_config["provider"],
@@ -229,7 +238,7 @@ class TestMemoryCoreSystem(unittest.TestCase):
                 "metric": concept_graph_config.get("metric", "cosine")
             })
         
-        memory_core_path = str(self.test_dir / "test_memory_core")
+        memory_core_path = self.memory_core_path
         new_concept_graph = MemoryCoreFactory.create_from_memory_core(
             memory_core_path=memory_core_path,
             memory_core_config=memory_core_config
@@ -266,13 +275,13 @@ class TestMemoryCoreSystem(unittest.TestCase):
         self.memory_core.save_graph()
         
         # Verify unified memory core folder structure exists
-        memory_core_dir = self.test_dir / "test_memory_core"
+        memory_core_dir = Path(self.memory_core_path)
         self.assertTrue(memory_core_dir.exists())
         self.assertTrue(memory_core_dir.is_dir())
         
         # Verify all expected files are in the same directory
-        graph_file = memory_core_dir / "test_graph.json"
-        emb_file = memory_core_dir / "test_emb_index.json"
+        graph_file = memory_core_dir / "data" / "test_graph.json"
+        emb_file = memory_core_dir / "data" / "test_emb_index.json"
         
         self.assertTrue(graph_file.exists())
         self.assertTrue(emb_file.exists())
@@ -308,7 +317,8 @@ class TestMemoryCoreSystemWithAPI(TestMemoryCoreSystem):
         }
         
         # Create a memory core using the new method
-        memory_core_path = str(self.test_dir / "convenience_memory_core")
+        import tempfile
+        memory_core_path = str(Path(tempfile.mkdtemp(prefix="convenience_memory_core_")))
         world_concept_graph = MemoryCoreFactory.create_from_memory_core(
             memory_core_path=memory_core_path,
             memory_core_config=memory_core_config
@@ -319,12 +329,12 @@ class TestMemoryCoreSystemWithAPI(TestMemoryCoreSystem):
         world_concept_graph.save_graph()
         
         # Verify the memory core folder structure was created
-        memory_core_dir = self.test_dir / "convenience_memory_core"
+        memory_core_dir = Path(memory_core_path)
         self.assertTrue(memory_core_dir.exists())
         
         # Verify both graph and embedding files exist in the same directory
-        graph_file = memory_core_dir / "graph.json"  # Default names
-        emb_file = memory_core_dir / "emb_index.json"
+        graph_file = memory_core_dir / "data" / "graph.json"  # Default names
+        emb_file = memory_core_dir / "data" / "emb_index.json"
         
         self.assertTrue(graph_file.exists())
         self.assertTrue(emb_file.exists())

@@ -5,14 +5,14 @@ from typing import Dict, List
 
 class ConceptGraphConstants:
     """Constants used throughout the concept graph module."""
-    
+
     # Embedding namespaces
     NAMESPACE_FULL_NODE = "full_node"
     NAMESPACE_NODE_NAME = "node_name"
-    
+
     # Separators and delimiters
     NODE_NAME_SEPARATOR = "||"
-    
+
     # Default values
     DEFAULT_REFS = {
         "ref_img": [],
@@ -20,11 +20,11 @@ class ConceptGraphConstants:
         "ref_video": [],
         "ref_docs": []
     }
-    
+
     # File paths
     DEFAULT_IMAGE_PREFIX = "imgs"
     DEFAULT_IMAGE_EXTENSION = ".jpg"
-    
+
     # Node field names
     FIELD_NODE_ID = "node_id"
     FIELD_NODE_NAME = "node_name"
@@ -33,12 +33,12 @@ class ConceptGraphConstants:
     FIELD_IS_EDITABLE = "is_editable"
     FIELD_REFS = "refs"
     FIELD_IMAGE_PATH = "image_path"
-    
+
     # Edge field names
     FIELD_SOURCE_NODE_ID = "source_node_id"
     FIELD_TARGET_NODE_ID = "target_node_id"
     FIELD_EDGE_TYPE = "edge_type"
-    
+
     # Reference types
     REF_IMG = "ref_img"
     REF_AUDIO = "ref_audio"

@@ -24,10 +24,10 @@ class TestBasicOperations:
             pytest.skip("API keys not configured for local testing")
         
         # Create memory core config using new schema
-        import os
+        from .config import OPENAI_API_KEY
         config = create_memory_core_config(
             provider="local",
-            api_key=os.getenv("OPENAI_API_KEY", "test_key"),
+            api_key=OPENAI_API_KEY,
             model="text-embedding-3-small",
             dim=1536
         )
@@ -57,14 +57,14 @@ class TestBasicOperations:
             pytest.skip("API keys not configured for remote testing")
         
         # Create memory core config using new schema for remote
-        import os
+        from .config import OPENAI_API_KEY, PINECONE_API_KEY
         config = create_memory_core_config(
             provider="remote",
-            api_key=os.getenv("OPENAI_API_KEY", "test_key"),
+            api_key=OPENAI_API_KEY,
             model="text-embedding-3-small",
             dim=1536,
-            pinecone_api_key=os.getenv("PINECONE_API_KEY", "test_pinecone_key"),
-            pinecone_index_name=os.getenv("PINECONE_INDEX_NAME", "test-index")
+            pinecone_api_key=PINECONE_API_KEY,
+            pinecone_index_name="test-index"
         )
         
         # Create memory core context and initialize service

@@ -2,7 +2,6 @@
 
 import pytest
 import sys
-import os
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
 
@@ -24,9 +23,10 @@ class TestMemoryCoreScenario:
             pytest.skip("API keys not configured for testing")
         
         # Create memory core config using new schema
+        from .config import OPENAI_API_KEY
         config = create_memory_core_config(
             provider="local",
-            api_key=os.getenv("OPENAI_API_KEY", "test_key"),
+            api_key=OPENAI_API_KEY,
             model="text-embedding-3-small",
             dim=1536
         )
