@@ -9,49 +9,62 @@ from typing import List, Dict, Any
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from memory.memory import ConceptGraphFactory, ConceptGraphService
-from .config import get_test_config, check_test_readiness
+from memory.memory import MemoryCoreFactory, MemoryCoreService
+from .config import check_test_readiness
+from tests.test_memory_core_utils import MemoryCoreTestContext, create_memory_core_config
 
 
 class TestIntegrationScenarios:
     """Test real-world integration scenarios and usage patterns."""
     
     @pytest.fixture
-    def persistent_graph(self):
-        """Create a graph that persists across test operations."""
+    def persistent_memory_core(self):
+        """Create a memory core that persists across test operations."""
         if not check_test_readiness(use_remote=False):
             pytest.skip("API keys not configured for testing")
         
-        config = get_test_config(use_remote=False)
-        graph = ConceptGraphFactory.create_from_config(
-            config["concept_graph_config"], 
-            config["file_store_config"],
-            memory_core_name="test_integration"
+        # Create memory core config using new schema
+        import os
+        config = create_memory_core_config(
+            provider="local",
+            api_key=os.getenv("OPENAI_API_KEY", "test_key"),
+            model="text-embedding-3-small",
+            dim=1536
         )
-        graph.empty_graph()
-        yield graph
         
-        # Cleanup
+        # Create memory core context and initialize service
+        context = MemoryCoreTestContext(custom_config=config)
+        memory_core_path = context.__enter__()
+        
         try:
+            graph = MemoryCoreFactory.create_from_memory_core(
+                memory_core_path=memory_core_path
+            )
             graph.empty_graph()
-        except Exception:
-            pass
+            yield graph
+        finally:
+            # Cleanup
+            try:
+                graph.empty_graph()
+            except Exception:
+                pass
+            context.__exit__(None, None, None)
     
-    def test_game_session_simulation(self, persistent_graph):
+    def test_game_session_simulation(self, persistent_memory_core):
         """Simulate a complete game session with progressive world building."""
         # Phase 1: Initial world setup
-        world_concepts = self._create_initial_world(persistent_graph)
+        world_concepts = self._create_initial_world(persistent_memory_core)
         
         # Phase 2: Player actions and world evolution
-        self._simulate_player_actions(persistent_graph, world_concepts)
+        self._simulate_player_actions(persistent_memory_core, world_concepts)
         
         # Phase 3: Dynamic content generation
-        self._simulate_dynamic_content(persistent_graph, world_concepts)
+        self._simulate_dynamic_content(persistent_memory_core, world_concepts)
         
         # Phase 4: World state queries
-        self._verify_world_state(persistent_graph, world_concepts)
+        self._verify_world_state(persistent_memory_core, world_concepts)
     
-    def _create_initial_world(self, graph: ConceptGraphService) -> Dict[str, str]:
+    def _create_initial_world(self, graph: MemoryCoreService) -> Dict[str, str]:
         """Create initial game world concepts."""
         concepts = {}
         
@@ -104,7 +117,7 @@ class TestIntegrationScenarios:
         graph.save_graph()
         return concepts
     
-    def _simulate_player_actions(self, graph: ConceptGraphService, world_concepts: Dict[str, str]):
+    def _simulate_player_actions(self, graph: MemoryCoreService, world_concepts: Dict[str, str]):
         """Simulate player actions that modify the world."""
         # Player investigates the missing caravan
         forest_road_id = graph.add_concept(
@@ -161,7 +174,7 @@ class TestIntegrationScenarios:
         
         graph.save_graph()
     
-    def _simulate_dynamic_content(self, graph: ConceptGraphService, world_concepts: Dict[str, str]):
+    def _simulate_dynamic_content(self, graph: MemoryCoreService, world_concepts: Dict[str, str]):
         """Simulate dynamic content generation based on player progress."""
         # Generate consequence of player actions - village reaction
         village_guard_id = graph.add_concept(
@@ -208,7 +221,7 @@ class TestIntegrationScenarios:
         
         graph.save_graph()
     
-    def _verify_world_state(self, graph: ConceptGraphService, world_concepts: Dict[str, str]):
+    def _verify_world_state(self, graph: MemoryCoreService, world_concepts: Dict[str, str]):
         """Verify the current state of the world through queries."""
         # Test location-based queries
         village_results = graph.query_similar_concepts("peaceful village community", top_k=5)
@@ -239,18 +252,18 @@ class TestIntegrationScenarios:
         bandit_names = [result[0]["node_name"] for result in bandit_results]
         assert "Scarred Jake" in bandit_names
     
-    def test_knowledge_base_evolution(self, persistent_graph):
+    def test_knowledge_base_evolution(self, persistent_memory_core):
         """Test how the knowledge base evolves with new information."""
         # Initial knowledge state
-        initial_concepts = self._create_academic_knowledge_base(persistent_graph)
+        initial_concepts = self._create_academic_knowledge_base(persistent_memory_core)
         
         # Add new research and discoveries
-        self._simulate_knowledge_discovery(persistent_graph, initial_concepts)
+        self._simulate_knowledge_discovery(persistent_memory_core, initial_concepts)
         
         # Test knowledge connections and inference
-        self._verify_knowledge_connections(persistent_graph, initial_concepts)
+        self._verify_knowledge_connections(persistent_memory_core, initial_concepts)
     
-    def _create_academic_knowledge_base(self, graph: ConceptGraphService) -> Dict[str, str]:
+    def _create_academic_knowledge_base(self, graph: MemoryCoreService) -> Dict[str, str]:
         """Create an academic knowledge base scenario."""
         concepts = {}
         
@@ -312,7 +325,7 @@ class TestIntegrationScenarios:
         graph.save_graph()
         return concepts
     
-    def _simulate_knowledge_discovery(self, graph: ConceptGraphService, concepts: Dict[str, str]):
+    def _simulate_knowledge_discovery(self, graph: MemoryCoreService, concepts: Dict[str, str]):
         """Simulate new discoveries and research connections."""
         # New breakthrough discovery
         breakthrough_id = graph.add_concept(
@@ -372,7 +385,7 @@ class TestIntegrationScenarios:
         
         graph.save_graph()
     
-    def _verify_knowledge_connections(self, graph: ConceptGraphService, concepts: Dict[str, str]):
+    def _verify_knowledge_connections(self, graph: MemoryCoreService, concepts: Dict[str, str]):
         """Verify knowledge connections and cross-field relationships."""
         # Test interdisciplinary discovery
         interdisciplinary_results = graph.query_similar_concepts(
@@ -402,18 +415,18 @@ class TestIntegrationScenarios:
         assert "Artificial Intelligence Research" in project_network_names
         assert "Bio-Inspired Neural Architecture" in project_network_names
     
-    def test_content_recommendation_system(self, persistent_graph):
+    def test_content_recommendation_system(self, persistent_memory_core):
         """Test using the concept graph as a content recommendation system."""
         # Create content library
-        content_concepts = self._create_content_library(persistent_graph)
+        content_concepts = self._create_content_library(persistent_memory_core)
         
         # Simulate user interactions
-        self._simulate_user_preferences(persistent_graph, content_concepts)
+        self._simulate_user_preferences(persistent_memory_core, content_concepts)
         
         # Test recommendation generation
-        self._verify_content_recommendations(persistent_graph, content_concepts)
+        self._verify_content_recommendations(persistent_memory_core, content_concepts)
     
-    def _create_content_library(self, graph: ConceptGraphService) -> Dict[str, str]:
+    def _create_content_library(self, graph: MemoryCoreService) -> Dict[str, str]:
         """Create a content library for recommendation testing."""
         concepts = {}
         
@@ -480,7 +493,7 @@ class TestIntegrationScenarios:
         graph.save_graph()
         return concepts
     
-    def _simulate_user_preferences(self, graph: ConceptGraphService, concepts: Dict[str, str]):
+    def _simulate_user_preferences(self, graph: MemoryCoreService, concepts: Dict[str, str]):
         """Simulate user interactions and preference learning."""
         # Alice likes sci-fi content
         graph.add_relation(concepts["user_alice"], concepts["sci-fi_novel:_dune"], "likes")
@@ -506,7 +519,7 @@ class TestIntegrationScenarios:
         
         graph.save_graph()
     
-    def _verify_content_recommendations(self, graph: ConceptGraphService, concepts: Dict[str, str]):
+    def _verify_content_recommendations(self, graph: MemoryCoreService, concepts: Dict[str, str]):
         """Verify content recommendation generation."""
         # Test recommendations for Alice (sci-fi fan)
         alice_related, alice_relations = graph.get_related_concepts(concepts["user_alice"], hop=2)

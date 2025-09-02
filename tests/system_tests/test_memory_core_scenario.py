@@ -2,14 +2,16 @@
 
 import pytest
 import sys
+import os
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
 
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from memory.memory import ConceptGraphFactory, ConceptGraphService
-from .config import get_test_config, check_test_readiness
+from memory.memory import MemoryCoreFactory, MemoryCoreService
+from .config import check_test_readiness
+from tests.test_memory_core_utils import MemoryCoreTestContext, create_memory_core_config
 
 
 class TestMemoryCoreScenario:
@@ -21,26 +23,38 @@ class TestMemoryCoreScenario:
         if not check_test_readiness(use_remote=False):
             pytest.skip("API keys not configured for testing")
         
-        config = get_test_config(use_remote=False)
-        graph = ConceptGraphFactory.create_from_config(
-            config["concept_graph_config"], 
-            config["file_store_config"],
-            memory_core_name="test_memory_core"
+        # Create memory core config using new schema
+        config = create_memory_core_config(
+            provider="local",
+            api_key=os.getenv("OPENAI_API_KEY", "test_key"),
+            model="text-embedding-3-small",
+            dim=1536
         )
-        graph.empty_graph()
         
-        # Create the memory core based on the notebook scenario
-        self._populate_memory_core(graph)
+        # Create memory core context and initialize service
+        context = MemoryCoreTestContext(custom_config=config)
+        memory_core_path = context.__enter__()
         
-        yield graph
-        
-        # Cleanup
         try:
+            graph = MemoryCoreFactory.create_from_memory_core(
+                memory_core_path=memory_core_path
+            )
             graph.empty_graph()
-        except Exception:
-            pass
+            
+            # Create the memory core based on the notebook scenario
+            self._populate_memory_core(graph)
+            
+            yield graph
+        
+        finally:
+            # Cleanup
+            try:
+                graph.empty_graph()
+            except Exception:
+                pass
+            context.__exit__(None, None, None)
     
-    def _populate_memory_core(self, graph: ConceptGraphService) -> Dict[str, str]:
+    def _populate_memory_core(self, graph: MemoryCoreService) -> Dict[str, str]:
         """Populate the memory core with NPCs, events, and locations."""
         concept_ids = {}
         

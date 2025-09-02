@@ -1,5 +1,5 @@
 { 
-  "concept_graph_config": {
+  "memory_core_config": {
     "openai_api_key": "sk-",
     "pinecone_api_key": "7",
     "pinecone_index_name": "test-graph-index",

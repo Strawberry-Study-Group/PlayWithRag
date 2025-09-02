@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is an AI-powered game engine with Retrieval-Augmented Generation (RAG) capabilities. The system creates interactive games using LLMs for narrative generation, Image generation models for scene visualization, and memory cores for persistent game state.
 
+The system features a comprehensive testing suite including large-scale tests with 1000+ nodes and edges to validate performance and correctness at scale across fantasy, modern, scientific, and historical knowledge domains.
+
 ## Core Architecture
 
 ### Agent-Based System

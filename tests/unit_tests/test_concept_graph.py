@@ -9,12 +9,12 @@ from typing import Dict, Any, List, Tuple, Optional
 import numpy as np
 
 from memory.memory import (
-    ConceptGraphService,
-    ConceptGraphFactory,
-    ConceptGraphError,
+    MemoryCoreService,
+    MemoryCoreFactory,
+    MemoryCoreError,
     ConceptNotFoundError,
     RelationNotFoundError,
-    IConceptGraph
+    IMemoryCore
 )
 from memory.file_store import IFileStore
 from memory.graph_store import IGraphStore
@@ -257,7 +257,7 @@ class MockEmbStore(IEmbService):
         pass
 
 
-class TestConceptGraphService:
+class TestMemoryCoreService:
     
     @pytest.fixture
     def mock_file_store(self):
@@ -297,8 +297,8 @@ class TestConceptGraphService:
         return Mock(spec=logging.Logger)
     
     @pytest.fixture
-    def concept_graph(self, mock_file_store, mock_graph_store, mock_emb_store, mock_logger):
-        return ConceptGraphService(mock_file_store, mock_graph_store, mock_emb_store, mock_logger)
+    def memory_core(self, mock_file_store, mock_graph_store, mock_emb_store, mock_logger):
+        return MemoryCoreService(mock_file_store, mock_graph_store, mock_emb_store, mock_logger)
     
     @pytest.fixture
     def sample_concept_data(self):
@@ -315,21 +315,21 @@ class TestConceptGraphService:
         }
     
     def test_init(self, mock_file_store, mock_graph_store, mock_emb_store, mock_logger):
-        service = ConceptGraphService(mock_file_store, mock_graph_store, mock_emb_store, mock_logger)
+        service = MemoryCoreService(mock_file_store, mock_graph_store, mock_emb_store, mock_logger)
         
         assert service.file_store == mock_file_store
         assert service.graph_store == mock_graph_store
         assert service.emb_store == mock_emb_store
         assert service.logger == mock_logger
     
-    def test_add_concept_success(self, concept_graph, sample_concept_data, mock_logger):
-        concept_id = concept_graph.add_concept(**sample_concept_data)
+    def test_add_concept_success(self, memory_core, sample_concept_data, mock_logger):
+        concept_id = memory_core.add_concept(**sample_concept_data)
         
         assert isinstance(concept_id, str)
         assert len(concept_id) == 32  # UUID hex length
         
         # Verify concept was added to graph
-        stored_concept = concept_graph.get_concept(concept_id)
+        stored_concept = memory_core.get_concept(concept_id)
         assert stored_concept is not None
         assert stored_concept["node_name"] == "Hero"
         assert stored_concept["node_type"] == "character"
@@ -337,12 +337,12 @@ class TestConceptGraphService:
         
         mock_logger.debug.assert_called()
     
-    def test_add_concept_with_default_refs(self, concept_graph):
-        concept_id = concept_graph.add_concept(
+    def test_add_concept_with_default_refs(self, memory_core):
+        concept_id = memory_core.add_concept(
             "Villain", "character", {"level": 5}
         )
         
-        stored_concept = concept_graph.get_concept(concept_id)
+        stored_concept = memory_core.get_concept(concept_id)
         assert stored_concept["refs"] == {
             "ref_img": [],
             "ref_audio": [],
@@ -351,24 +351,24 @@ class TestConceptGraphService:
         }
     
     def test_add_concept_with_image(self, mock_file_store_with_spy, mock_graph_store, mock_emb_store, mock_logger):
-        concept_graph = ConceptGraphService(mock_file_store_with_spy, mock_graph_store, mock_emb_store, mock_logger)
+        memory_core = MemoryCoreService(mock_file_store_with_spy, mock_graph_store, mock_emb_store, mock_logger)
         
-        concept_id = concept_graph.add_concept(
+        concept_id = memory_core.add_concept(
             "Castle", "location", {"rooms": 10}, image_path="/path/to/castle.jpg"
         )
         
-        stored_concept = concept_graph.get_concept(concept_id)
+        stored_concept = memory_core.get_concept(concept_id)
         assert stored_concept["image_path"] == f"imgs/{concept_id}.jpg"
         
         # Verify file was stored
         mock_file_store_with_spy.add_file.assert_called_with("/path/to/castle.jpg", f"imgs/{concept_id}.jpg")
     
-    def test_add_concept_invalid_attributes(self, concept_graph):
+    def test_add_concept_invalid_attributes(self, memory_core):
         with pytest.raises(ValueError, match="Attributes must be a dictionary"):
-            concept_graph.add_concept("Test", "character", "invalid_attributes")
+            memory_core.add_concept("Test", "character", "invalid_attributes")
     
-    def test_update_concept_success(self, concept_graph, sample_concept_data, mock_logger):
-        concept_id = concept_graph.add_concept(**sample_concept_data)
+    def test_update_concept_success(self, memory_core, sample_concept_data, mock_logger):
+        concept_id = memory_core.add_concept(**sample_concept_data)
         
         new_refs = {
             "ref_img": ["new_hero.jpg"],
@@ -377,84 +377,84 @@ class TestConceptGraphService:
             "ref_docs": []
         }
         
-        concept_graph.update_concept(
+        memory_core.update_concept(
             concept_id,
             concept_name="Updated Hero",
             concept_attributes={"level": 2},
             refs=new_refs
         )
         
-        stored_concept = concept_graph.get_concept(concept_id)
+        stored_concept = memory_core.get_concept(concept_id)
         assert stored_concept["node_name"] == "Updated Hero"
         assert stored_concept["node_attributes"]["level"] == 2
         assert stored_concept["refs"] == new_refs
         
         mock_logger.debug.assert_called()
     
-    def test_update_concept_not_found(self, concept_graph):
+    def test_update_concept_not_found(self, memory_core):
         with pytest.raises(ConceptNotFoundError):
-            concept_graph.update_concept("nonexistent", concept_name="Test")
+            memory_core.update_concept("nonexistent", concept_name="Test")
     
-    def test_delete_concept_success(self, concept_graph, sample_concept_data, mock_logger):
-        concept_id = concept_graph.add_concept(**sample_concept_data)
+    def test_delete_concept_success(self, memory_core, sample_concept_data, mock_logger):
+        concept_id = memory_core.add_concept(**sample_concept_data)
         
-        concept_graph.delete_concept(concept_id)
+        memory_core.delete_concept(concept_id)
         
-        assert concept_graph.get_concept(concept_id) is None
+        assert memory_core.get_concept(concept_id) is None
         mock_logger.debug.assert_called()
     
-    def test_delete_concept_not_found(self, concept_graph):
+    def test_delete_concept_not_found(self, memory_core):
         with pytest.raises(ConceptNotFoundError):
-            concept_graph.delete_concept("nonexistent")
+            memory_core.delete_concept("nonexistent")
     
-    def test_get_concept_success(self, concept_graph, sample_concept_data):
-        concept_id = concept_graph.add_concept(**sample_concept_data)
+    def test_get_concept_success(self, memory_core, sample_concept_data):
+        concept_id = memory_core.add_concept(**sample_concept_data)
         
-        retrieved_concept = concept_graph.get_concept(concept_id)
+        retrieved_concept = memory_core.get_concept(concept_id)
         
         assert retrieved_concept is not None
         assert retrieved_concept["node_id"] == concept_id
         assert retrieved_concept["node_name"] == "Hero"
     
-    def test_get_concept_not_found(self, concept_graph):
-        result = concept_graph.get_concept("nonexistent")
+    def test_get_concept_not_found(self, memory_core):
+        result = memory_core.get_concept("nonexistent")
         assert result is None
     
-    def test_add_relation_success(self, concept_graph, mock_logger):
-        concept1_id = concept_graph.add_concept("Hero", "character", {"level": 1})
-        concept2_id = concept_graph.add_concept("Sword", "item", {"damage": 10})
+    def test_add_relation_success(self, memory_core, mock_logger):
+        concept1_id = memory_core.add_concept("Hero", "character", {"level": 1})
+        concept2_id = memory_core.add_concept("Sword", "item", {"damage": 10})
         
-        concept_graph.add_relation(concept1_id, concept2_id, "has")
+        memory_core.add_relation(concept1_id, concept2_id, "has")
         
-        relation = concept_graph.get_relation(concept1_id, concept2_id)
+        relation = memory_core.get_relation(concept1_id, concept2_id)
         assert relation is not None
         assert relation["edge_type"] == "has"
         
         mock_logger.debug.assert_called()
     
-    def test_add_relation_source_not_found(self, concept_graph):
-        concept_id = concept_graph.add_concept("Sword", "item", {"damage": 10})
+    def test_add_relation_source_not_found(self, memory_core):
+        concept_id = memory_core.add_concept("Sword", "item", {"damage": 10})
         
         with pytest.raises(ConceptNotFoundError):
-            concept_graph.add_relation("nonexistent", concept_id, "has")
+            memory_core.add_relation("nonexistent", concept_id, "has")
     
-    def test_delete_relation_success(self, concept_graph, mock_logger):
-        concept1_id = concept_graph.add_concept("Hero", "character", {"level": 1})
-        concept2_id = concept_graph.add_concept("Sword", "item", {"damage": 10})
+    def test_delete_relation_success(self, memory_core, mock_logger):
+        concept1_id = memory_core.add_concept("Hero", "character", {"level": 1})
+        concept2_id = memory_core.add_concept("Sword", "item", {"damage": 10})
         
-        concept_graph.add_relation(concept1_id, concept2_id, "has")
-        concept_graph.delete_relation(concept1_id, concept2_id)
+        memory_core.add_relation(concept1_id, concept2_id, "has")
+        memory_core.delete_relation(concept1_id, concept2_id)
         
-        relation = concept_graph.get_relation(concept1_id, concept2_id)
+        relation = memory_core.get_relation(concept1_id, concept2_id)
         assert relation is None
         
         mock_logger.debug.assert_called()
     
-    def test_query_similar_concepts(self, concept_graph):
-        concept1_id = concept_graph.add_concept("Hero", "character", {"level": 1})
-        concept2_id = concept_graph.add_concept("Villain", "character", {"level": 5})
+    def test_query_similar_concepts(self, memory_core):
+        concept1_id = memory_core.add_concept("Hero", "character", {"level": 1})
+        concept2_id = memory_core.add_concept("Villain", "character", {"level": 5})
         
-        results = concept_graph.query_similar_concepts("character", top_k=2)
+        results = memory_core.query_similar_concepts("character", top_k=2)
         
         # Verify we get results (exact ordering may vary due to mock randomness)
         assert len(results) <= 2
@@ -463,54 +463,54 @@ class TestConceptGraphService:
             assert isinstance(score, float)
             assert 0 <= score <= 1
     
-    def test_get_related_concepts_success(self, concept_graph):
-        hero_id = concept_graph.add_concept("Hero", "character", {"level": 1})
-        sword_id = concept_graph.add_concept("Sword", "item", {"damage": 10})
+    def test_get_related_concepts_success(self, memory_core):
+        hero_id = memory_core.add_concept("Hero", "character", {"level": 1})
+        sword_id = memory_core.add_concept("Sword", "item", {"damage": 10})
         
-        concept_graph.add_relation(hero_id, sword_id, "has")
+        memory_core.add_relation(hero_id, sword_id, "has")
         
-        related_concepts, related_relations = concept_graph.get_related_concepts(hero_id)
+        related_concepts, related_relations = memory_core.get_related_concepts(hero_id)
         
         assert len(related_concepts) == 1
         assert len(related_relations) == 1
         assert related_concepts[0]["node_name"] == "Sword"
     
-    def test_get_related_concepts_not_found(self, concept_graph):
+    def test_get_related_concepts_not_found(self, memory_core):
         with pytest.raises(ConceptNotFoundError):
-            concept_graph.get_related_concepts("nonexistent")
+            memory_core.get_related_concepts("nonexistent")
     
     def test_save_graph(self, mock_file_store, mock_graph_store_with_spy, mock_emb_store_with_spy, mock_logger):
-        concept_graph = ConceptGraphService(mock_file_store, mock_graph_store_with_spy, mock_emb_store_with_spy, mock_logger)
-        concept_graph.save_graph()
+        memory_core = MemoryCoreService(mock_file_store, mock_graph_store_with_spy, mock_emb_store_with_spy, mock_logger)
+        memory_core.save_graph()
         
         mock_graph_store_with_spy.save_graph.assert_called_once()
         mock_emb_store_with_spy.save_index.assert_called_once()
         mock_logger.debug.assert_called_with("Graph and embeddings saved")
     
     def test_empty_graph(self, mock_file_store, mock_graph_store_with_spy, mock_emb_store_with_spy, mock_logger):
-        concept_graph = ConceptGraphService(mock_file_store, mock_graph_store_with_spy, mock_emb_store_with_spy, mock_logger)
-        concept_graph.empty_graph()
+        memory_core = MemoryCoreService(mock_file_store, mock_graph_store_with_spy, mock_emb_store_with_spy, mock_logger)
+        memory_core.empty_graph()
         
         mock_graph_store_with_spy.delete_graph.assert_called_once()
         mock_emb_store_with_spy.delete_index.assert_called_once()
         mock_logger.info.assert_called_with("Graph emptied successfully (in-memory only)")
     
-    def test_is_concept(self, concept_graph):
-        concept_id = concept_graph.add_concept("Hero", "character", {"level": 1})
+    def test_is_concept(self, memory_core):
+        concept_id = memory_core.add_concept("Hero", "character", {"level": 1})
         
-        assert concept_graph.is_concept(concept_id) is True
-        assert concept_graph.is_concept("nonexistent") is False
+        assert memory_core.is_concept(concept_id) is True
+        assert memory_core.is_concept("nonexistent") is False
     
-    def test_is_relation(self, concept_graph):
-        concept1_id = concept_graph.add_concept("Hero", "character", {"level": 1})
-        concept2_id = concept_graph.add_concept("Sword", "item", {"damage": 10})
+    def test_is_relation(self, memory_core):
+        concept1_id = memory_core.add_concept("Hero", "character", {"level": 1})
+        concept2_id = memory_core.add_concept("Sword", "item", {"damage": 10})
         
-        assert concept_graph.is_relation(concept1_id, concept2_id) is False
+        assert memory_core.is_relation(concept1_id, concept2_id) is False
         
-        concept_graph.add_relation(concept1_id, concept2_id, "has")
-        assert concept_graph.is_relation(concept1_id, concept2_id) is True
+        memory_core.add_relation(concept1_id, concept2_id, "has")
+        assert memory_core.is_relation(concept1_id, concept2_id) is True
     
-    def test_node_to_text_excludes_refs(self, concept_graph):
+    def test_node_to_text_excludes_refs(self, memory_core):
         """Test that _node_to_text excludes refs from embedding text."""
         node = {
             "node_name": "Hero",
@@ -524,7 +524,7 @@ class TestConceptGraphService:
             }
         }
         
-        text = concept_graph._node_to_text(node)
+        text = memory_core._node_to_text(node)
         
         # Verify refs are not included in the text
         assert "refs" not in text
@@ -537,7 +537,7 @@ class TestConceptGraphService:
         assert "level" in text
 
 
-class TestConceptGraphFactory:
+class TestMemoryCoreFactory:
     
     @pytest.fixture
     def mock_logger(self):
@@ -562,9 +562,9 @@ class TestConceptGraphFactory:
     @patch('memory.memory.FileStoreFactory')
     @patch('memory.memory.GraphStoreFactory')
     @patch('memory.memory.EmbServiceFactory')
-    def test_create_from_memory_core_local(self, mock_emb_factory, mock_graph_factory, 
-                                          mock_file_factory, sample_concept_config, 
-                                          sample_file_config, mock_logger):
+    def test_create_from_memory_core_local_with_config(self, mock_emb_factory, mock_graph_factory, 
+                                                      mock_file_factory, mock_logger):
+        """Test creating memory core with provided config (bypassing validation)."""
         mock_file_store = Mock()
         mock_graph_store = Mock()
         mock_emb_store = Mock()
@@ -576,10 +576,10 @@ class TestConceptGraphFactory:
         # Create memory core config structure
         memory_core_config = {
             "embedding": {
-                "provider": sample_concept_config["provider"],
-                "api_key": sample_concept_config.get("embedding_api_key", ""),
-                "model": sample_concept_config.get("emb_model", "text-embedding-3-small"),
-                "dim": sample_concept_config.get("emb_dim", 1536)
+                "provider": "local",
+                "api_key": "test_key",
+                "model": "text-embedding-3-small",
+                "dim": 1536
             },
             "files": {
                 "graph_file": "graph.json",
@@ -587,27 +587,90 @@ class TestConceptGraphFactory:
             }
         }
         
-        result = ConceptGraphFactory.create_from_memory_core(
-            memory_core_path="/test/memory_core",
-            memory_core_config=memory_core_config,
-            logger=mock_logger
-        )
+        # Mock structure validation to pass
+        with patch('memory.memory_core_schema.MemoryCoreValidator') as mock_validator_class:
+            mock_validator = Mock()
+            mock_validator.validate_structure.return_value = []  # No errors
+            mock_validator_class.return_value = mock_validator
+            
+            result = MemoryCoreFactory.create_from_memory_core(
+                memory_core_path="/test/memory_core",
+                memory_core_config=memory_core_config,
+                logger=mock_logger
+            )
         
-        assert isinstance(result, ConceptGraphService)
+        assert isinstance(result, MemoryCoreService)
         assert result.file_store == mock_file_store
         assert result.graph_store == mock_graph_store
         assert result.emb_store == mock_emb_store
+        
+        # Verify structure validation was called
+        mock_validator.validate_structure.assert_called_once_with("/test/memory_core")
+    
+    def test_create_from_memory_core_with_actual_structure(self, mock_logger):
+        """Test creating memory core with actual directory structure."""
+        from tests.test_memory_core_utils import MemoryCoreTestContext
+        
+        with MemoryCoreTestContext(api_key="test_key") as memory_core_path:
+            # Create the memory core service without providing config (loads from config.json)
+            result = MemoryCoreFactory.create_from_memory_core(
+                memory_core_path=memory_core_path,
+                logger=mock_logger
+            )
+            
+            assert isinstance(result, MemoryCoreService)
+            assert result.file_store is not None
+            assert result.graph_store is not None
+            assert result.emb_store is not None
+    
+    def test_create_from_memory_core_validation_error(self, mock_logger):
+        """Test that validation errors are properly raised."""
+        from tests.test_memory_core_utils import create_invalid_memory_core, cleanup_test_memory_core
+        from memory.memory_core_schema import ValidationError
+        
+        invalid_memory_core = create_invalid_memory_core()
+        try:
+            with pytest.raises(ValidationError):
+                MemoryCoreFactory.create_from_memory_core(
+                    memory_core_path=invalid_memory_core,
+                    logger=mock_logger
+                )
+        finally:
+            cleanup_test_memory_core(invalid_memory_core)
+    
+    def test_create_from_memory_core_remote_provider(self, mock_logger):
+        """Test creating memory core with remote embedding provider."""
+        from tests.test_memory_core_utils import MemoryCoreTestContext, create_memory_core_config
+        
+        config = create_memory_core_config(
+            provider="remote",
+            pinecone_api_key="test_pinecone_key",
+            pinecone_index_name="test_index"
+        )
+        
+        with MemoryCoreTestContext(custom_config=config) as memory_core_path:
+            with patch('memory.memory.EmbServiceFactory.create_pinecone_store') as mock_pinecone:
+                mock_pinecone.return_value = Mock()
+                
+                result = MemoryCoreFactory.create_from_memory_core(
+                    memory_core_path=memory_core_path,
+                    memory_core_config=config,
+                    logger=mock_logger
+                )
+                
+                assert isinstance(result, MemoryCoreService)
+                mock_pinecone.assert_called_once()
     
     def test_create_custom(self, mock_logger):
         mock_file_store = Mock(spec=IFileStore)
         mock_graph_store = Mock(spec=IGraphStore)
         mock_emb_store = Mock(spec=IEmbService)
         
-        result = ConceptGraphFactory.create_custom(
+        result = MemoryCoreFactory.create_custom(
             mock_file_store, mock_graph_store, mock_emb_store, mock_logger
         )
         
-        assert isinstance(result, ConceptGraphService)
+        assert isinstance(result, MemoryCoreService)
         assert result.file_store == mock_file_store
         assert result.graph_store == mock_graph_store
         assert result.emb_store == mock_emb_store
@@ -617,25 +680,25 @@ class TestConceptGraphFactory:
 
 class TestInterfaces:
     
-    def test_concept_graph_interface(self):
-        """Test that IConceptGraph defines required methods."""
+    def test_memory_core_interface(self):
+        """Test that IMemoryCore defines required methods."""
         required_methods = [
             'add_concept', 'update_concept', 'delete_concept', 'get_concept',
             'add_relation', 'query_similar_concepts', 'get_related_concepts'
         ]
         
         for method_name in required_methods:
-            assert hasattr(IConceptGraph, method_name)
-            assert callable(getattr(IConceptGraph, method_name))
+            assert hasattr(IMemoryCore, method_name)
+            assert callable(getattr(IMemoryCore, method_name))
 
 
 class TestErrorHandling:
     
     def test_custom_exceptions_inheritance(self):
         """Test that custom exceptions inherit from base exception."""
-        assert issubclass(ConceptGraphError, Exception)
-        assert issubclass(ConceptNotFoundError, ConceptGraphError)
-        assert issubclass(RelationNotFoundError, ConceptGraphError)
+        assert issubclass(MemoryCoreError, Exception)
+        assert issubclass(ConceptNotFoundError, MemoryCoreError)
+        assert issubclass(RelationNotFoundError, MemoryCoreError)
     
     def test_concept_not_found_error_message(self):
         """Test ConceptNotFoundError with custom message."""

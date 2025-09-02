@@ -45,10 +45,10 @@ class InformationRetrievalAction(ActionNode):
     """
     Action node for retrieving information from the game state or agent's memory.
     """
-    def __init__(self, action_description, concept_graph, llm, retrieval_prompt, 
+    def __init__(self, action_description, memory_core, llm, retrieval_prompt, 
                  match_threshold=0.5, concept_type=None, relation_type=None, related_hop=1):
         super().__init__(action_description)
-        self.concept_graph = concept_graph
+        self.memory_core = memory_core
         self.retrieval_prompt = retrieval_prompt
         self.match_threshold = match_threshold
         self.llm = llm
@@ -69,7 +69,7 @@ class InformationRetrievalAction(ActionNode):
         print("concept_names: ", concept_names)
         matched_concepts = []
         for concept_name in concept_names:
-            retrieved_concepts = self.concept_graph.query_similar_concepts(concept_name)
+            retrieved_concepts = self.memory_core.query_similar_concepts(concept_name)
             for concept, score in retrieved_concepts:
                 if score > self.match_threshold:
                     matched_concepts.append(concept)
@@ -77,7 +77,7 @@ class InformationRetrievalAction(ActionNode):
         related_concepts = []
         related_relations = []
         for concept in matched_concepts:
-            related_concepts, related_relations = self.concept_graph.get_related_concepts(concept["node_id"], 
+            related_concepts, related_relations = self.memory_core.get_related_concepts(concept["node_id"], 
                                                                                           hop=self.related_hop,
                                                                                           concept_type=self.concept_type,
                                                                                           relation_type=self.relation_type)
@@ -137,42 +137,42 @@ class LongTermMemoryUpdateAction(ActionNode):
     """
     Action node for updating the agent's memory based on the current game state.
     """
-    def __init__(self, action_description, concept_graph):
+    def __init__(self, action_description, memory_core):
         super().__init__(action_description)
-        self.concept_graph = concept_graph
+        self.memory_core = memory_core
     
     def execute(self, concept_update_dict, relation_update_dict):
         for concept_name in concept_update_dict:
             if concept_update_dict[concept_name]["manipulation"] == "add":
-                if not self.concept_graph.get_concept_id_by_name(concept_name):
-                    self.concept_graph.add_concept(concept_name,
+                if not self.memory_core.get_concept_id_by_name(concept_name):
+                    self.memory_core.add_concept(concept_name,
                                                 concept_type=concept_update_dict[concept_name]["concept_type"],
                                                 concept_attributes=concept_update_dict[concept_name]["concept_attributes"])
             if concept_update_dict[concept_name]["manipulation"] == "delete":
-                concept_id = self.concept_graph.get_concept_id_by_name(concept_name)
-                self.concept_graph.delete_concept(concept_id)
+                concept_id = self.memory_core.get_concept_id_by_name(concept_name)
+                self.memory_core.delete_concept(concept_id)
             if concept_update_dict[concept_name]["manipulation"] == "update":
-                concept_id = self.concept_graph.get_concept_id_by_name(concept_name)
+                concept_id = self.memory_core.get_concept_id_by_name(concept_name)
                 if concept_id:
-                    self.concept_graph.update_concept(concept_id,
+                    self.memory_core.update_concept(concept_id,
                                                     concept_type=concept_update_dict[concept_name]["concept_type"],
                                                     concept_attributes=concept_update_dict[concept_name]["concept_attributes"])
             
         for relation in relation_update_dict:
-            source_concept_id = self.concept_graph.get_concept_id_by_name(relation["source_concept_name"])
-            target_concept_id = self.concept_graph.get_concept_id_by_name(relation["target_concept_name"]) 
+            source_concept_id = self.memory_core.get_concept_id_by_name(relation["source_concept_name"])
+            target_concept_id = self.memory_core.get_concept_id_by_name(relation["target_concept_name"]) 
             if relation["manipulation"] == "add":
                 if source_concept_id and target_concept_id:
-                    relation_id = self.concept_graph.graph_store.parse_edge_key(source_concept_id, target_concept_id)  
-                    if not self.concept_graph.graph_store.graph["edge_dict"].get(relation_id):
-                        self.concept_graph.add_relation(source_concept_id,
+                    relation_id = self.memory_core.graph_store.parse_edge_key(source_concept_id, target_concept_id)  
+                    if not self.memory_core.graph_store.graph["edge_dict"].get(relation_id):
+                        self.memory_core.add_relation(source_concept_id,
                                                         target_concept_id,
                                                         relation["relation_type"],
                                                         relation["is_editable"],)
             if relation["manipulation"] == "delete":
-                self.concept_graph.delete_relation(source_concept_id, target_concept_id)
+                self.memory_core.delete_relation(source_concept_id, target_concept_id)
             if relation["manipulation"] == "update":
-                self.concept_graph.update_relation(source_concept_id,
+                self.memory_core.update_relation(source_concept_id,
                                                 target_concept_id,
                                                 relation["relation_type"],
                                                 relation["is_editable"],)

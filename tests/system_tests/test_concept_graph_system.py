@@ -2,81 +2,47 @@
 import unittest
 import tempfile
 import shutil
+import os
 from pathlib import Path
 import sys
 
 sys.path.append("../..")
-from memory.memory import ConceptGraphFactory
+from memory.memory import MemoryCoreFactory
 from memory.constants import ConceptGraphConstants
-
-# Import test configuration
-try:
-    from tests.test_config import get_concept_graph_config, get_file_store_config, has_valid_openai_key
-except ImportError:
-    print("Warning: test_config.py not found. Please copy test_config.template.py to test_config.py and configure your API keys.")
-    # Fallback configuration
-    def get_concept_graph_config():
-        return {
-            "provider": "local",
-            "embedding_api_key": "PLEASE_PROVIDE_OPENAI_API_KEY",
-            "emb_model": "text-embedding-3-small",
-            "emb_dim": 1536
-        }
-    
-    def get_file_store_config(test_dir):
-        return {
-            "provider": "local",
-            "save_path": str(test_dir),
-        }
-    
-    def has_valid_openai_key():
-        return False
+from tests.test_memory_core_utils import MemoryCoreTestContext, create_memory_core_config
+from .config import check_test_readiness
 
 
-class TestConceptGraphSystem(unittest.TestCase):
-    """System tests for ConceptGraph with real implementations."""
+class TestMemoryCoreSystem(unittest.TestCase):
+    """System tests for MemoryCore with real implementations."""
     
     def setUp(self):
-        """Set up test environment with temporary directory and real ConceptGraph."""
-        # Create temporary directory for test files
-        self.test_dir = Path(tempfile.mkdtemp())
+        """Set up test environment with temporary directory and real MemoryCore."""
+        if not check_test_readiness(use_remote=False):
+            self.skipTest("API keys not configured for testing")
         
-        # Get configurations from test_config
-        self.file_store_config = get_file_store_config(self.test_dir)
-        self.concept_graph_config = get_concept_graph_config()
+        # Create memory core config using new schema
+        self.memory_core_config = create_memory_core_config(
+            provider="local",
+            api_key=os.getenv("OPENAI_API_KEY", "test_key"),
+            model="text-embedding-3-small",
+            dim=1536,
+            graph_file="test_graph.json",
+            index_file="test_emb_index.json"
+        )
         
-        # Create ConceptGraph using new memory core structure
-        memory_core_config = {
-            "embedding": {
-                "provider": self.concept_graph_config["provider"],
-                "api_key": self.concept_graph_config.get("embedding_api_key", ""),
-                "model": self.concept_graph_config.get("emb_model", "text-embedding-3-small"),
-                "dim": self.concept_graph_config.get("emb_dim", 1536)
-            },
-            "files": {
-                "graph_file": "test_graph.json",
-                "index_file": "test_emb_index.json"
-            }
-        }
+        # Create memory core context
+        self.memory_core_context = MemoryCoreTestContext(custom_config=self.memory_core_config)
+        self.memory_core_path = self.memory_core_context.__enter__()
         
-        # Add remote-specific config if needed
-        if self.concept_graph_config["provider"] == "remote":
-            memory_core_config["embedding"].update({
-                "pinecone_api_key": self.concept_graph_config.get("pinecone_api_key", ""),
-                "pinecone_index_name": self.concept_graph_config.get("pinecone_index_name", ""),
-                "metric": self.concept_graph_config.get("metric", "cosine")
-            })
-        
-        memory_core_path = str(self.test_dir / "test_memory_core")
-        self.concept_graph = ConceptGraphFactory.create_from_memory_core(
-            memory_core_path=memory_core_path,
-            memory_core_config=memory_core_config
+        self.memory_core = MemoryCoreFactory.create_from_memory_core(
+            memory_core_path=self.memory_core_path
         )
     
     def tearDown(self):
-        """Clean up temporary directory."""
-        if self.test_dir.exists():
-            shutil.rmtree(self.test_dir)
+        """Clean up memory core."""
+        if hasattr(self, 'memory_core_context'):
+            self.memory_core_context.__exit__(None, None, None)
     
     def test_add_and_get_concept(self):
         """Test adding and retrieving a concept."""
@@ -89,7 +55,7 @@ class TestConceptGraphSystem(unittest.TestCase):
         }
         
         # Add concept
-        concept_id = self.concept_graph.add_concept(
+        concept_id = self.memory_core.add_concept(
             concept_name, concept_type, concept_attributes
         )
         
@@ -98,7 +64,7 @@ class TestConceptGraphSystem(unittest.TestCase):
         self.assertTrue(len(concept_id) > 0)
         
         # Retrieve concept
-        retrieved_concept = self.concept_graph.get_concept(concept_id)
+        retrieved_concept = self.memory_core.get_concept(concept_id)
         self.assertIsNotNone(retrieved_concept)
         self.assertEqual(retrieved_concept[ConceptGraphConstants.FIELD_NODE_NAME], concept_name)
         self.assertEqual(retrieved_concept[ConceptGraphConstants.FIELD_NODE_TYPE], concept_type)
@@ -107,19 +73,19 @@ class TestConceptGraphSystem(unittest.TestCase):
     def test_update_concept(self):
         """Test updating a concept."""
         # Add initial concept
-        concept_id = self.concept_graph.add_concept(
+        concept_id = self.memory_core.add_concept(
             "Initial Name", "person", {"age": 25}
         )
         
         # Update concept
-        self.concept_graph.update_concept(
+        self.memory_core.update_concept(
             concept_id,
             concept_name="Updated Name",
             concept_attributes={"age": 26, "city": "San Francisco"}
         )
         
         # Verify updates
-        updated_concept = self.concept_graph.get_concept(concept_id)
+        updated_concept = self.memory_core.get_concept(concept_id)
         self.assertEqual(updated_concept[ConceptGraphConstants.FIELD_NODE_NAME], "Updated Name")
         self.assertEqual(updated_concept[ConceptGraphConstants.FIELD_NODE_ATTRIBUTES]["age"], 26)
         self.assertEqual(updated_concept[ConceptGraphConstants.FIELD_NODE_ATTRIBUTES]["city"], "San Francisco")
@@ -127,63 +93,63 @@ class TestConceptGraphSystem(unittest.TestCase):
     def test_add_and_get_relation(self):
         """Test adding and retrieving relations between concepts."""
         # Add two concepts
-        person_id = self.concept_graph.add_concept("Alice", "person", {"age": 30})
-        company_id = self.concept_graph.add_concept("TechCorp", "company", {"industry": "technology"})
+        person_id = self.memory_core.add_concept("Alice", "person", {"age": 30})
+        company_id = self.memory_core.add_concept("TechCorp", "company", {"industry": "technology"})
         
         # Add relation
-        self.concept_graph.add_relation(person_id, company_id, "works_at")
+        self.memory_core.add_relation(person_id, company_id, "works_at")
         
         # Verify relation exists
-        relation = self.concept_graph.get_relation(person_id, company_id)
+        relation = self.memory_core.get_relation(person_id, company_id)
         self.assertIsNotNone(relation)
         self.assertEqual(relation[ConceptGraphConstants.FIELD_EDGE_TYPE], "works_at")
     
     def test_update_relation(self):
         """Test updating a relation."""
         # Add concepts and relation
-        person_id = self.concept_graph.add_concept("Bob", "person", {})
-        company_id = self.concept_graph.add_concept("StartupInc", "company", {})
-        self.concept_graph.add_relation(person_id, company_id, "intern_at")
+        person_id = self.memory_core.add_concept("Bob", "person", {})
+        company_id = self.memory_core.add_concept("StartupInc", "company", {})
+        self.memory_core.add_relation(person_id, company_id, "intern_at")
         
         # Update relation
-        self.concept_graph.update_relation(person_id, company_id, "employee_at")
+        self.memory_core.update_relation(person_id, company_id, "employee_at")
         
         # Verify update
-        updated_relation = self.concept_graph.get_relation(person_id, company_id)
+        updated_relation = self.memory_core.get_relation(person_id, company_id)
         self.assertEqual(updated_relation[ConceptGraphConstants.FIELD_EDGE_TYPE], "employee_at")
     
     def test_delete_concept_and_relation(self):
         """Test deleting concepts and relations."""
         # Add concepts and relation
-        person_id = self.concept_graph.add_concept("Charlie", "person", {})
-        company_id = self.concept_graph.add_concept("BigCorp", "company", {})
-        self.concept_graph.add_relation(person_id, company_id, "works_at")
+        person_id = self.memory_core.add_concept("Charlie", "person", {})
+        company_id = self.memory_core.add_concept("BigCorp", "company", {})
+        self.memory_core.add_relation(person_id, company_id, "works_at")
         
         # Verify they exist
-        self.assertIsNotNone(self.concept_graph.get_concept(person_id))
-        self.assertIsNotNone(self.concept_graph.get_relation(person_id, company_id))
+        self.assertIsNotNone(self.memory_core.get_concept(person_id))
+        self.assertIsNotNone(self.memory_core.get_relation(person_id, company_id))
         
         # Delete relation
-        self.concept_graph.delete_relation(person_id, company_id)
-        self.assertIsNone(self.concept_graph.get_relation(person_id, company_id))
+        self.memory_core.delete_relation(person_id, company_id)
+        self.assertIsNone(self.memory_core.get_relation(person_id, company_id))
         
         # Delete concept
-        self.concept_graph.delete_concept(person_id)
-        self.assertIsNone(self.concept_graph.get_concept(person_id))
+        self.memory_core.delete_concept(person_id)
+        self.assertIsNone(self.memory_core.get_concept(person_id))
         
         # Company should still exist
-        self.assertIsNotNone(self.concept_graph.get_concept(company_id))
+        self.assertIsNotNone(self.memory_core.get_concept(company_id))
     
     def test_query_similar_concepts(self):
         """Test querying for similar concepts using embeddings."""
         # Add several related concepts
-        self.concept_graph.add_concept("Python Developer", "person", {"skill": "programming"})
-        self.concept_graph.add_concept("Java Developer", "person", {"skill": "programming"}) 
-        self.concept_graph.add_concept("Data Scientist", "person", {"skill": "analytics"})
-        self.concept_graph.add_concept("Pizza Chef", "person", {"skill": "cooking"})
+        self.memory_core.add_concept("Python Developer", "person", {"skill": "programming"})
+        self.memory_core.add_concept("Java Developer", "person", {"skill": "programming"}) 
+        self.memory_core.add_concept("Data Scientist", "person", {"skill": "analytics"})
+        self.memory_core.add_concept("Pizza Chef", "person", {"skill": "cooking"})
         
         # Query for similar concepts
-        similar_concepts = self.concept_graph.query_similar_concepts("Software Engineer", top_k=3)
+        similar_concepts = self.memory_core.query_similar_concepts("Software Engineer", top_k=3)
         
         # Should return some results
         self.assertGreaterEqual(len(similar_concepts), 0)  # Might be empty if no embeddings match
@@ -197,19 +163,19 @@ class TestConceptGraphSystem(unittest.TestCase):
     def test_get_related_concepts(self):
         """Test getting related concepts within specified hops."""
         # Create a small network
-        alice_id = self.concept_graph.add_concept("Alice", "person", {})
-        bob_id = self.concept_graph.add_concept("Bob", "person", {})
-        company_id = self.concept_graph.add_concept("TechCorp", "company", {})
-        project_id = self.concept_graph.add_concept("AI Project", "project", {})
+        alice_id = self.memory_core.add_concept("Alice", "person", {})
+        bob_id = self.memory_core.add_concept("Bob", "person", {})
+        company_id = self.memory_core.add_concept("TechCorp", "company", {})
+        project_id = self.memory_core.add_concept("AI Project", "project", {})
         
         # Add relations
-        self.concept_graph.add_relation(alice_id, company_id, "works_at")
-        self.concept_graph.add_relation(bob_id, company_id, "works_at")
-        self.concept_graph.add_relation(alice_id, project_id, "leads")
-        self.concept_graph.add_relation(bob_id, project_id, "contributes_to")
+        self.memory_core.add_relation(alice_id, company_id, "works_at")
+        self.memory_core.add_relation(bob_id, company_id, "works_at")
+        self.memory_core.add_relation(alice_id, project_id, "leads")
+        self.memory_core.add_relation(bob_id, project_id, "contributes_to")
         
         # Get related concepts for Alice
-        related_concepts, related_relations = self.concept_graph.get_related_concepts(
+        related_concepts, related_relations = self.memory_core.get_related_concepts(
             alice_id, hop=1
         )
         
@@ -218,7 +184,7 @@ class TestConceptGraphSystem(unittest.TestCase):
         self.assertGreaterEqual(len(related_relations), 2)
         
         # Filter by relation type
-        work_relations = self.concept_graph.get_related_concepts(
+        work_relations = self.memory_core.get_related_concepts(
             alice_id, hop=1, relation_type="works_at"
         )[1]
         
@@ -228,10 +194,10 @@ class TestConceptGraphSystem(unittest.TestCase):
     def test_save_and_persistence(self):
         """Test saving and data persistence."""
         # Add some data
-        concept_id = self.concept_graph.add_concept("Persistent Data", "test", {"value": 42})
+        concept_id = self.memory_core.add_concept("Persistent Data", "test", {"value": 42})
         
         # Save explicitly
-        self.concept_graph.save_graph()
+        self.memory_core.save_graph()
         
         # Verify files were created in the unified memory core folder
         memory_core_dir = self.test_dir / "test_memory_core"
@@ -264,7 +230,7 @@ class TestConceptGraphSystem(unittest.TestCase):
             })
         
         memory_core_path = str(self.test_dir / "test_memory_core")
-        new_concept_graph = ConceptGraphFactory.create_from_memory_core(
+        new_concept_graph = MemoryCoreFactory.create_from_memory_core(
             memory_core_path=memory_core_path,
             memory_core_config=memory_core_config
         )
@@ -277,12 +243,12 @@ class TestConceptGraphSystem(unittest.TestCase):
     def test_graph_statistics(self):
         """Test getting graph statistics."""
         # Add some concepts of different types
-        self.concept_graph.add_concept("Person 1", "person", {})
-        self.concept_graph.add_concept("Person 2", "person", {}) 
-        self.concept_graph.add_concept("Company 1", "company", {})
+        self.memory_core.add_concept("Person 1", "person", {})
+        self.memory_core.add_concept("Person 2", "person", {}) 
+        self.memory_core.add_concept("Company 1", "company", {})
         
         # Get statistics
-        stats = self.concept_graph.get_graph_statistics()
+        stats = self.memory_core.get_graph_statistics()
         
         self.assertIsInstance(stats, dict)
         self.assertIn("total_concepts", stats)
@@ -294,10 +260,10 @@ class TestConceptGraphSystem(unittest.TestCase):
     def test_unified_folder_structure(self):
         """Test that all files are stored in a unified memory core folder structure."""
         # Add some data
-        concept_id = self.concept_graph.add_concept("Test Concept", "test", {"value": 123})
+        concept_id = self.memory_core.add_concept("Test Concept", "test", {"value": 123})
         
         # Save to ensure files are created
-        self.concept_graph.save_graph()
+        self.memory_core.save_graph()
         
         # Verify unified memory core folder structure exists
         memory_core_dir = self.test_dir / "test_memory_core"
@@ -317,10 +283,10 @@ class TestConceptGraphSystem(unittest.TestCase):
 
 
 @unittest.skipIf(
-    not has_valid_openai_key(),
-    "OpenAI API key not provided. Copy test_config.template.py to test_config.py and add your API key."
+    not check_test_readiness(use_remote=False),
+    "OpenAI API key not provided for system tests."
 )
-class TestConceptGraphSystemWithAPI(TestConceptGraphSystem):
+class TestMemoryCoreSystemWithAPI(TestMemoryCoreSystem):
     """System tests that require API access. Only run when API key is provided."""
     
     def test_create_memory_core_method(self):
@@ -343,7 +309,7 @@ class TestConceptGraphSystemWithAPI(TestConceptGraphSystem):
         
         # Create a memory core using the new method
         memory_core_path = str(self.test_dir / "convenience_memory_core")
-        world_concept_graph = ConceptGraphFactory.create_from_memory_core(
+        world_concept_graph = MemoryCoreFactory.create_from_memory_core(
             memory_core_path=memory_core_path,
             memory_core_config=memory_core_config
         )

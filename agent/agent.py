@@ -1,7 +1,7 @@
 import sys
 sys.path.append("..")
 from .shorterm_mem import ShortTermMemory
-from memory.memory import ConceptGraphFactory
+from memory.memory import MemoryCoreFactory
 from .action_node import *
 from .llm import LLM
 from render.render import ImgRender,ImgRenderWithReferanceImg
@@ -28,8 +28,8 @@ class Agent:
 
         self.actions = dict()
 
-        self.longterm_mem = ConceptGraphFactory.create_from_config(
-            self.config["concept_graph_config"], 
+        self.longterm_mem = MemoryCoreFactory.create_from_config(
+            self.config["memory_core_config"], 
             self.config["save_file_config"],
             memory_core_name="agent_world"
         )

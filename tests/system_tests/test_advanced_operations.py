@@ -9,69 +9,84 @@ from typing import List, Dict, Any, Tuple
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from memory.memory import ConceptGraphFactory
-from .config import get_test_config, check_test_readiness
+from memory.memory import MemoryCoreFactory
+from .config import check_test_readiness
+from tests.test_memory_core_utils import MemoryCoreTestContext, create_memory_core_config
 
 
 class TestAdvancedOperations:
     """Test advanced concept graph operations and edge cases."""
     
     @pytest.fixture
-    def concept_graph(self):
-        """Create concept graph for advanced testing."""
+    def memory_core(self):
+        """Create memory core for advanced testing."""
         if not check_test_readiness(use_remote=False):
             pytest.skip("API keys not configured for testing")
         
-        config = get_test_config(use_remote=False)
-        graph = ConceptGraphFactory.create_from_config(
-            config["concept_graph_config"], 
-            config["file_store_config"],
-            memory_core_name="test_advanced"
+        # Create memory core config using new schema
+        import os
+        config = create_memory_core_config(
+            provider="local",
+            api_key=os.getenv("OPENAI_API_KEY", "test_key"),
+            model="text-embedding-3-small",
+            dim=1536
         )
-        graph.empty_graph()
-        yield graph
         
-        # Cleanup
+        # Create memory core context and initialize service
+        context = MemoryCoreTestContext(custom_config=config)
+        memory_core_path = context.__enter__()
+        
         try:
+            graph = MemoryCoreFactory.create_from_memory_core(
+                memory_core_path=memory_core_path
+            )
             graph.empty_graph()
-        except Exception:
-            pass
+            
+            yield graph
+        
+        finally:
+            # Cleanup
+            try:
+                graph.empty_graph()
+            except Exception:
+                pass
+            context.__exit__(None, None, None)
     
-    def test_multi_hop_relationship_traversal(self, concept_graph):
+    def test_multi_hop_relationship_traversal(self, memory_core):
         """Test traversing relationships across multiple hops."""
         # Create a chain of relationships: A -> B -> C -> D
         concepts = []
         for i, name in enumerate(["Alpha", "Beta", "Gamma", "Delta"]):
-            concept_id = concept_graph.add_concept(
+            concept_id = memory_core.add_concept(
                 name, "test_type", {"position": i, "description": f"Concept {name}"}
             )
             concepts.append((name, concept_id))
         
         # Create chain relationships
         for i in range(len(concepts) - 1):
-            concept_graph.add_relation(concepts[i][1], concepts[i+1][1], "leads_to")
+            memory_core.add_relation(concepts[i][1], concepts[i+1][1], "leads_to")
         
         # Test 1-hop traversal from Alpha
-        related_1hop, relations_1hop = concept_graph.get_related_concepts(concepts[0][1], hop=1)
+        related_1hop, relations_1hop = memory_core.get_related_concepts(concepts[0][1], hop=1)
         assert len(related_1hop) == 1
         assert related_1hop[0]["node_name"] == "Beta"
         
         # Test 2-hop traversal from Alpha
-        related_2hop, relations_2hop = concept_graph.get_related_concepts(concepts[0][1], hop=2)
+        related_2hop, relations_2hop = memory_core.get_related_concepts(concepts[0][1], hop=2)
         related_names_2hop = [c["node_name"] for c in related_2hop]
         assert "Beta" in related_names_2hop
         assert "Gamma" in related_names_2hop
         assert len(related_2hop) >= 2
         
         # Test 3-hop traversal from Alpha
-        related_3hop, relations_3hop = concept_graph.get_related_concepts(concepts[0][1], hop=3)
+        related_3hop, relations_3hop = memory_core.get_related_concepts(concepts[0][1], hop=3)
         related_names_3hop = [c["node_name"] for c in related_3hop]
         assert "Beta" in related_names_3hop
         assert "Gamma" in related_names_3hop
         assert "Delta" in related_names_3hop
         assert len(related_3hop) >= 3
     
-    def test_large_scale_similarity_search(self, concept_graph):
+    def test_large_scale_similarity_search(self, memory_core):
         """Test similarity search with larger numbers of concepts."""
         # Create a larger set of diverse concepts
         concept_types = {
@@ -94,13 +109,13 @@ class TestAdvancedOperations:
         created_concepts = {}
         for category, concepts in concept_types.items():
             for name, description in concepts:
-                concept_id = concept_graph.add_concept(
+                concept_id = memory_core.add_concept(
                     name, category[:-1], {"description": description}
                 )
                 created_concepts[name] = concept_id
         
         # Test search for warrior concepts
-        warrior_results = concept_graph.query_similar_concepts("fierce battle warrior", top_k=10)
+        warrior_results = memory_core.query_similar_concepts("fierce battle warrior", top_k=10)
         warrior_names = [result[0]["node_name"] for result in warrior_results]
         
         # Should find multiple warrior types
@@ -109,7 +124,7 @@ class TestAdvancedOperations:
         assert len(found_warriors) >= 2  # Should find at least 2 warrior types
         
         # Test search for magic concepts
-        magic_results = concept_graph.query_similar_concepts("magic spells arcane", top_k=10)
+        magic_results = memory_core.query_similar_concepts("magic spells arcane", top_k=10)
         magic_names = [result[0]["node_name"] for result in magic_results]
         
         # Should find multiple mage types

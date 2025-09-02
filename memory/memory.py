@@ -9,24 +9,25 @@ from .graph_store import IGraphStore, GraphStoreFactory
 from .emb_store import IEmbService, EmbServiceFactory
 from .constants import ConceptGraphConstants, get_default_refs, get_image_path, get_node_name_embedding_id
 from .concept_operations import ConceptOperations, ConceptBuilder
+from .memory_core_schema import load_memory_core_config, MemoryCoreSchema
 
 
-class ConceptGraphError(Exception):
+class MemoryCoreError(Exception):
     """Base exception for concept graph operations."""
     pass
 
 
-class ConceptNotFoundError(ConceptGraphError):
+class ConceptNotFoundError(MemoryCoreError):
     """Raised when a requested concept is not found."""
     pass
 
 
-class RelationNotFoundError(ConceptGraphError):
+class RelationNotFoundError(MemoryCoreError):
     """Raised when a requested relation is not found."""
     pass
 
 
-class IConceptGraph(ABC):
+class IMemoryCore(ABC):
     """Interface for concept graph operations."""
     
     @abstractmethod
@@ -72,7 +73,7 @@ class IConceptGraph(ABC):
         pass
 
 
-class ConceptGraphService(IConceptGraph):
+class MemoryCoreService(IMemoryCore):
     """Service for managing concept graphs with dependency injection."""
     
     def __init__(self, file_store: IFileStore, graph_store: IGraphStore, 
@@ -354,7 +355,7 @@ class ConceptGraphService(IConceptGraph):
             self.logger.info("Graph emptied successfully (in-memory only)")
         except Exception as e:
             self.logger.error(f"Failed to empty graph: {e}")
-            raise ConceptGraphError(f"Failed to empty graph: {e}")
+            raise MemoryCoreError(f"Failed to empty graph: {e}")
     
     def get_graph_statistics(self) -> Dict[str, Any]:
         """Get statistics about the concept graph."""
@@ -380,62 +381,82 @@ class ConceptGraphService(IConceptGraph):
         return validation_results
 
 
-class ConceptGraphFactory:
+class MemoryCoreFactory:
     """Factory for creating concept graph instances."""
     
     @staticmethod
     def create_from_memory_core(memory_core_path: str,
-                               memory_core_config: Dict[str, Any],
-                               logger: Optional[logging.Logger] = None) -> ConceptGraphService:
+                               memory_core_config: Optional[Dict[str, Any]] = None,
+                               logger: Optional[logging.Logger] = None) -> MemoryCoreService:
         """Create concept graph from a memory core folder path.
+        
+        The memory core must follow the standard directory structure:
+        memory_core/
+        ├── config.json                 (required configuration)
+        ├── assets/                     (required asset directory)
+        │   ├── img/                   (images subdirectory)
+        │   ├── voice/                 (voice/audio subdirectory)
+        │   └── [other asset types]    (extensible)
+        ├── data/                      (data directory - created if missing)
+        │   ├── graph.json            (concept graph data)
+        │   ├── emb_index.json        (embeddings index)
+        │   └── schema.json           (optional graph schema)
+        └── [custom directories]       (extensible)
         
         Args:
             memory_core_path: Path to the memory core folder containing all data
-            memory_core_config: Configuration including embedding store and file names
+            memory_core_config: Optional config override (if None, loads from config.json)
             logger: Optional logger instance
             
         Returns:
-            ConceptGraphService: Configured concept graph service
+            MemoryCoreService: Configured memory core service
+            
+        Raises:
+            ValidationError: If memory core structure or config is invalid
+            ValueError: If embedding provider is invalid
             
         Note:
-            All files (graph, embeddings, images) are stored in the memory core folder.
-            
-        Expected memory_core_config structure:
-        {
-            "embedding": {
-                "provider": "local" | "remote",
-                "api_key": "...",
-                "model": "text-embedding-3-small",
-                "dim": 1536,
-                # for remote only:
-                "pinecone_api_key": "...",
-                "pinecone_index_name": "...",
-                "metric": "cosine"
-            },
-            "files": {
-                "schema_file": "schema.json" (optional),
-                "graph_file": "graph.json",
-                "index_file": "emb_index.json"
-            }
-        }
+            If memory_core_config is provided, it overrides the config.json file.
+            Otherwise, config.json is loaded and validated from the memory core.
         """
+        # Load and validate config from memory core or use provided config
+        if memory_core_config is None:
+            memory_core_config = load_memory_core_config(memory_core_path)
+        # If config is provided, we still validate the structure but skip config validation
+        else:
+            from .memory_core_schema import MemoryCoreValidator
+            validator = MemoryCoreValidator(logger)
+            structure_errors = validator.validate_structure(memory_core_path)
+            if structure_errors:
+                from .memory_core_schema import ValidationError
+                raise ValidationError(f"Memory core structure validation failed: {'; '.join(structure_errors)}")
+        
         # Extract config sections
         embedding_config = memory_core_config["embedding"]
         files_config = memory_core_config.get("files", {})
         
-        # Get file names with defaults
+        # Get file names with defaults from schema
+        schema = MemoryCoreSchema()
         schema_file = files_config.get("schema_file")
-        graph_file_name = files_config.get("graph_file", "graph.json")
-        index_file_name = files_config.get("index_file", "emb_index.json")
+        graph_file_name = files_config.get("graph_file", schema.DEFAULT_GRAPH_FILE)
+        index_file_name = files_config.get("index_file", schema.DEFAULT_INDEX_FILE)
         
-        # Create file store pointing directly to memory core
+        # Create file store pointing to the assets/img directory for images
+        from pathlib import Path
+        assets_img_path = str(Path(memory_core_path) / schema.ASSETS_DIR / schema.IMG_DIR)
         file_store = FileStoreFactory.create_local_store(
-            memory_core_path, "", logger  # Empty prefix - use memory core folder directly
+            assets_img_path, "", logger  # Empty prefix - use assets/img folder directly
         )
         
-        # Create graph store
+        # Create separate file store for data directory if it exists
+        data_path = str(Path(memory_core_path) / schema.DATA_DIR)
+        data_file_store = FileStoreFactory.create_local_store(
+            data_path, "", logger  # Empty prefix - use data folder directly
+        )
+        
+        # Create graph store using data directory
         graph_store = GraphStoreFactory.create_local_store(
-            file_store, schema_file, graph_file_name, logger
+            data_file_store, schema_file, graph_file_name, logger
         )
         
         # Create embedding store
@@ -452,7 +473,7 @@ class ConceptGraphFactory:
         elif embedding_config["provider"] == "local":
             emb_store = EmbServiceFactory.create_local_store(
                 embedding_config["api_key"],
-                file_store,
+                data_file_store,  # Use data directory for embedding index
                 embedding_config["model"],
                 embedding_config["dim"],
                 index_file_name,
@@ -461,13 +482,13 @@ class ConceptGraphFactory:
         else:
             raise ValueError(f"Invalid embedding store provider: {embedding_config['provider']}")
         
-        return ConceptGraphService(file_store, graph_store, emb_store, logger)
+        return MemoryCoreService(file_store, graph_store, emb_store, logger)
     
     @staticmethod
     def create_custom(file_store: IFileStore, graph_store: IGraphStore, 
-                     emb_store: IEmbService, logger: Optional[logging.Logger] = None) -> ConceptGraphService:
+                     emb_store: IEmbService, logger: Optional[logging.Logger] = None) -> MemoryCoreService:
         """Create concept graph with custom components."""
-        return ConceptGraphService(file_store, graph_store, emb_store, logger)
+        return MemoryCoreService(file_store, graph_store, emb_store, logger)
     
 
 

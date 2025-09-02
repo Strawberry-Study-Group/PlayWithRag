@@ -107,3 +107,4 @@ tests/**/test_*.png
 .DS_Store
 Thumbs.db
 unit_test_save/graph/emb_index.json
+tests/system_tests/test_memory_cores/comprehensive_memory_core_1756789964/config.json
